@@ -20,5 +20,5 @@ class dynEffector:
         return self._effectorName
 
     @abstractmethod
-    def computeRHS(cls): pass
+    def computeRHS(self): pass
 

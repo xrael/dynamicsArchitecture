@@ -16,6 +16,8 @@ class simulatorManager:
     _dt = 0.0
     _timeVector = None
 
+    _computeEnergy = False
+    _energy = None
 
     def __init__(self):
 
@@ -26,6 +28,9 @@ class simulatorManager:
         self._tf = 0.0
         self._dt = 0.0
         self._timeVector = None
+
+        self._computeEnergy = False
+        self._energy = None
 
         return
 
@@ -70,6 +75,12 @@ class simulatorManager:
         stateManager.setStates(stateName,value)
         return
 
+    def computeEnergy(self, bool):
+        self._computeEnergy = bool
+        return
+
+    def getEnergyVector(self):
+        return self._energy
 
     def simulate(self):
 
@@ -81,14 +92,18 @@ class simulatorManager:
         stateManager = self._dynObj.getStateManager()
         stateManager.createStateHistory(l)
 
+        if self._computeEnergy:
+            self._energy = np.zeros(l)
+
         for i in range(0,l):
             t = self._timeVector[i]
 
             self._dynObj.integrateState(t, self._dt)
             print i
-            if i == l:
-                a=1
             stateManager.saveState(i)
+
+            if self._computeEnergy:
+                self._energy[i] = self._dynObj.computeEnergy()
 
         return
 

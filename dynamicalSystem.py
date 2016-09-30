@@ -5,6 +5,7 @@ import integrator
 from stateManager import stateManager
 import stateEffector
 
+import numpy as np
 
 class dynamicalSystem:
     """
@@ -85,20 +86,37 @@ class spacecraft(dynamicalSystem):
 
     def setHubInertia(self, inertia):
         self._hub.setHubInertia(inertia)
+        return
 
-    def addVSCMG(self, name, mass, R_CoM, Ig, Iw, G):
-        vscmg = stateEffector.vscmg.getVSCMG(self, name, mass, R_CoM, Ig, Iw, G, self._hub)
+    def setHubCoMOffset(self, R_BcB_N):
+        self._hub.setHubCoMOffset(R_BcB_N)
+        return
+
+    def addVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0):
+        w_BN_name = self._hub.getStateAngularVelocityName()
+        sigma_BN_name = self._hub.getStateAttitudeName()
+        v_BN_N_name = self._hub.getStateVelocityName()
+        vscmg = stateEffector.vscmg.getVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, w_BN_name, sigma_BN_name,v_BN_N_name)
         self._hub.addStateEffector(vscmg)
         return vscmg
 
-
-
     def equationsOfMotion(self, t):
         self._hub.computeStateDerivatives(t)
+
+        stateEffectors = self._hub.getStateEffectors()
+        for effector in stateEffectors:
+            effector.computeStateDerivatives(t)
+
         return
 
     def computeEnergy(self):
-        return
+
+        E = self._hub.computeEnergy()
+        stateEffectors = self._hub.getStateEffectors()
+        for effector in stateEffectors:
+            E += effector.computeEnergy()
+
+        return E
 
     def computeAngularMomentum(self):
         return
