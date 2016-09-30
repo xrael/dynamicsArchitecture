@@ -2,11 +2,12 @@
 import numpy as np
 import integrator
 import dynamicalSystem
-import stateEffector
-
 
 
 class simulatorManager:
+    """
+    Class that manage the simulation.
+    """
 
     _dynObj = None
     _integrator = None
@@ -18,6 +19,8 @@ class simulatorManager:
 
     _computeEnergy = False
     _energy = None
+    _computeAngularMomentum = False
+    _angularMomentum = None
 
     def __init__(self):
 
@@ -30,12 +33,21 @@ class simulatorManager:
         self._timeVector = None
 
         self._computeEnergy = False
+        self._computeAngularMomentum = False
         self._energy = None
+        self._angularMomentum = None
 
         return
 
     @classmethod
     def getSimulatorManager(cls, dynObj_str, integrator_str, sc_name):
+        """
+        Use this factory method to get a simulator object.
+        :param dynObj_str: [string] Type of dynamical object to be used.
+        :param integrator_str:  [string] Type of integrator to be used.
+        :param sc_name:
+        :return:
+        """
         simManager = simulatorManager()
 
         if integrator_str == "rk4":
@@ -55,6 +67,13 @@ class simulatorManager:
 
 
     def setSimulationTimes(self, t0, tf, dt):
+        """
+        Define the simulation times before calling simulate().
+        :param t0:
+        :param tf:
+        :param dt:
+        :return:
+        """
         self._t0 = t0
         self._tf = tf
         self._dt = dt
@@ -71,6 +90,12 @@ class simulatorManager:
             return True
 
     def setInitialConditions(self, stateName, value):
+        """
+        Set the initial conditions ofr every state before calling simulate()
+        :param stateName:
+        :param value:
+        :return:
+        """
         stateManager = self._dynObj.getStateManager()
         stateManager.setStates(stateName,value)
         return
@@ -82,8 +107,17 @@ class simulatorManager:
     def getEnergyVector(self):
         return self._energy
 
-    def simulate(self):
+    def computeAngularMomentum(self, bool):
+        self._computeAngularMomentum = bool
 
+    def getAngularMomentumVector(self):
+        return self._angularMomentum
+
+    def simulate(self):
+        """
+        This is were magic occurs. Runs the simulation.
+        :return:
+        """
         if self._tf - self._t0 <= 0:
             return
 
@@ -95,6 +129,9 @@ class simulatorManager:
         if self._computeEnergy:
             self._energy = np.zeros(l)
 
+        if self._computeAngularMomentum:
+            self._angularMomentum = np.zeros((l,3))
+
         for i in range(0,l):
             t = self._timeVector[i]
 
@@ -105,9 +142,16 @@ class simulatorManager:
             if self._computeEnergy:
                 self._energy[i] = self._dynObj.computeEnergy()
 
+            if self._computeAngularMomentum:
+                self._angularMomentum[i] = self._dynObj.computeAngularMomentum()
+
         return
 
     def getStateHistory(self):
+        """
+        Get the state history to retrieve the evolution of the states on time.
+        :return:
+        """
         return self._dynObj.getStateManager().getStateHistory()
 
     def getTimeVector(self):

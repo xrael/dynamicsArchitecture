@@ -51,19 +51,43 @@ class dynamicalSystem:
 
 
     @abstractmethod
-    def equationsOfMotion(self, t): pass
+    def equationsOfMotion(self, t):
+        """
+        Method to compute F(x,t) where x_dot = F(x,t)
+        :param t:
+        :return:
+        """
+        pass
 
     @abstractmethod
-    def computeEnergy(self): pass
+    def computeEnergy(self):
+        """
+        This method should compute the mechanical energy of the system.
+        :return:
+        """
+        pass
 
     @abstractmethod
-    def computeAngularMomentum(self): pass
+    def computeAngularMomentum(self):
+        """
+        This method should compute the angular momentum of the system in the inertial frame.
+        :return:
+        """
+        pass
 
     def integrateState(self, t, dt):
         self._integrator.integrate(t, dt)
         return
 
+#----------------------------------------------------------------------------------------------------------------------#
+
 class spacecraft(dynamicalSystem):
+    """
+    This implementation of dynamicalSystem assumes that there's a central hub. Every single state effector is only
+    connected to the hub, as its only parent.
+    It is also assumed that every stateEffector solves its contributions to the hub's dynamics using backsubstitution.
+    So first the hub state derivatives are solved, and then the rest of the states.
+    """
 
     _hub = None
 
@@ -93,6 +117,19 @@ class spacecraft(dynamicalSystem):
         return
 
     def addVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0):
+        """
+        Use this method to add VSCMGs to the spacecraft.
+        :param name:
+        :param mass:
+        :param r_OiB:
+        :param Igs:
+        :param Igt:
+        :param Igg:
+        :param Iws:
+        :param Iwt:
+        :param BG0:
+        :return:
+        """
         w_BN_name = self._hub.getStateAngularVelocityName()
         sigma_BN_name = self._hub.getStateAttitudeName()
         v_BN_N_name = self._hub.getStateVelocityName()
@@ -100,7 +137,50 @@ class spacecraft(dynamicalSystem):
         self._hub.addStateEffector(vscmg)
         return vscmg
 
+    def addRW(self, name, mass, r_OiB, Iws, Iwt, BW):
+        """
+        Use this method to add reaction wheels to the spacecraft.
+        :param name:
+        :param mass:
+        :param r_OiB:
+        :param Iws:
+        :param Iwt:
+        :param BW:
+        :return:
+        """
+        w_BN_name = self._hub.getStateAngularVelocityName()
+        sigma_BN_name = self._hub.getStateAttitudeName()
+        v_BN_N_name = self._hub.getStateVelocityName()
+        rw = stateEffector.reactionWheel.getRW(self, name, mass, r_OiB, Iws, Iwt, BW, w_BN_name, sigma_BN_name,v_BN_N_name)
+        self._hub.addStateEffector(rw)
+        return rw
+
+    def addCMG(self, name, mass, r_OiB, Igs, Igt, Igg, BG0):
+        """
+        Use this method to add CMGs to the spacecraft.
+        :param name:
+        :param mass:
+        :param r_OiB:
+        :param Igs:
+        :param Igt:
+        :param Igg:
+        :param BG0:
+        :return:
+        """
+        w_BN_name = self._hub.getStateAngularVelocityName()
+        sigma_BN_name = self._hub.getStateAttitudeName()
+        v_BN_N_name = self._hub.getStateVelocityName()
+        cmg = stateEffector.cmg.getCMG(self, name, mass, r_OiB, Igs, Igt, Igg, BG0, w_BN_name, sigma_BN_name,v_BN_N_name)
+        self._hub.addStateEffector(cmg)
+        return cmg
+
     def equationsOfMotion(self, t):
+        """
+        Computes X_dot.
+        Assumption: backsubtitution.
+        :param t:
+        :return:
+        """
         self._hub.computeStateDerivatives(t)
 
         stateEffectors = self._hub.getStateEffectors()
@@ -119,4 +199,9 @@ class spacecraft(dynamicalSystem):
         return E
 
     def computeAngularMomentum(self):
-        return
+        H = self._hub.computeAngularMomentum()
+        stateEffectors = self._hub.getStateEffectors()
+        for effector in stateEffectors:
+            H += effector.computeAngularMomentum()
+
+        return H

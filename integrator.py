@@ -39,25 +39,25 @@ class rk4Integrator(integrator):
 
         # k1
         self._dynSystem.equationsOfMotion(t)
-        k1 = stateMan.getStateDerivativeVector()
+        k1 = stateMan.getStateDerivativesVector()
         x_k1 = x + 0.5 * k1 * dt
         stateMan.setStateVector(x_k1)
 
         # k2
         self._dynSystem.equationsOfMotion(t_half)
-        k2 = stateMan.getStateDerivativeVector()
+        k2 = stateMan.getStateDerivativesVector()
         x_k2 = x + 0.5 * k2 * dt
         stateMan.setStateVector(x_k2)
 
         # k3
         self._dynSystem.equationsOfMotion(t_half)
-        k3 = stateMan.getStateDerivativeVector()
+        k3 = stateMan.getStateDerivativesVector()
         x_k3 = x + k3 * dt
         stateMan.setStateVector(x_k3)
 
         # k4
         self._dynSystem.equationsOfMotion(t + dt)
-        k4 = stateMan.getStateDerivativeVector()
+        k4 = stateMan.getStateDerivativesVector()
 
         x_next = x + 1.0/6.0 * dt * (k1 + 2*k2 + 2*k3 + k4)
 
