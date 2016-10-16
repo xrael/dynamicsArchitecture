@@ -7,6 +7,7 @@ import stateEffector
 
 import numpy as np
 
+
 class dynamicalSystem:
     """
     Base class of every dynamical system to be simulated.
@@ -15,13 +16,13 @@ class dynamicalSystem:
 
     _integrator = None
     _stateManager = None
-    # _stateEffectors = None
+    _stateEffectors = None
     # _dynEffectors = None
 
     def __init__(self):
         self._integrator = None
         self._stateManager = stateManager()
-        # self._stateEffectors = list()
+        self._stateEffectors = list()
         # self._dynEffectors = list()
         return
 
@@ -36,10 +37,9 @@ class dynamicalSystem:
     def getStateManager(self):
         return self._stateManager
 
-    # def addStateEffector(self, stateEffector):
-    #     self._stateEffectors.append(stateEffector)
-    #     stateEffector.setStateManager(self._stateManager)
-    #     return
+    def addStateEffector(self, stateEffector):
+        self._stateEffectors.append(stateEffector)
+        return
     #
     # def addDynEffector(self, dynEffector):
     #     self._dynEffectors.append(dynEffector)
@@ -49,6 +49,17 @@ class dynamicalSystem:
     def getState(self, name):
         return self._stateManager.getStates(name)
 
+    def getStateDerivative(self, name):
+        return self._stateManager.getStateDerivatives(name)
+
+    def startSimulation(self):
+        """
+        If there's anything to start after the initial conditions have been set and before starting the simulation, do it here.
+        :return:
+        """
+        for effector in self._stateEffectors:
+            effector.startSimulation()
+        return
 
     @abstractmethod
     def equationsOfMotion(self, t):
@@ -63,6 +74,14 @@ class dynamicalSystem:
     def computeEnergy(self):
         """
         This method should compute the mechanical energy of the system.
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def computeMechanicalPower(self):
+        """
+        This method should compute the mechanical power injected on the system (positive).
         :return:
         """
         pass
@@ -101,22 +120,34 @@ class spacecraft(dynamicalSystem):
         sc = spacecraft()
         sc.setIntegrator(integrator)
         sc._hub = stateEffector.spacecraftHub.getSpacecraftHub(sc, sc_name)
+        sc.addStateEffector(sc._hub)
 
         return sc
 
     def setHubMass(self, mass):
-        self._hub.setHubMass(mass)
+        self._hub.setMass(mass)
         return
 
     def setHubInertia(self, inertia):
-        self._hub.setHubInertia(inertia)
+        self._hub.setInertia(inertia)
         return
 
     def setHubCoMOffset(self, R_BcB_N):
-        self._hub.setHubCoMOffset(R_BcB_N)
+        self._hub.setCoMOffset(R_BcB_N)
         return
 
-    def addVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0):
+    def getTotalInertiaB(self):
+        """
+        This probably shouldn't be here.
+        :return:
+        """
+        I_B = np.zeros((3,3))
+        for effector in self._stateEffectors:
+            I_B += effector.getInertiaRelativeToReferenceB()
+
+        return I_B
+
+    def addVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, nominal_speed_rpm, ug = 0.0, us = 0.0):
         """
         Use this method to add VSCMGs to the spacecraft.
         :param name:
@@ -128,12 +159,16 @@ class spacecraft(dynamicalSystem):
         :param Iws:
         :param Iwt:
         :param BG0:
+        :param nominal_speed_rpm:
+        :param ug: Optional initial gimbal torque.
+        :param us: Optional initial wheel torque.
         :return:
         """
         w_BN_name = self._hub.getStateAngularVelocityName()
         sigma_BN_name = self._hub.getStateAttitudeName()
         v_BN_N_name = self._hub.getStateVelocityName()
-        vscmg = stateEffector.vscmg.getVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, w_BN_name, sigma_BN_name,v_BN_N_name)
+        vscmg = stateEffector.vscmg.getVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, w_BN_name, sigma_BN_name,v_BN_N_name, nominal_speed_rpm, ug, us)
+        self.addStateEffector(vscmg) # Now I'm adding stateEffectors to both: hub and sc. This might change because is not clear
         self._hub.addStateEffector(vscmg)
         return vscmg
 
@@ -152,6 +187,7 @@ class spacecraft(dynamicalSystem):
         sigma_BN_name = self._hub.getStateAttitudeName()
         v_BN_N_name = self._hub.getStateVelocityName()
         rw = stateEffector.reactionWheel.getRW(self, name, mass, r_OiB, Iws, Iwt, BW, w_BN_name, sigma_BN_name,v_BN_N_name)
+        self.addStateEffector(rw) # Now I'm adding stateEffectors to both: hub and sc. This might change because is not clear
         self._hub.addStateEffector(rw)
         return rw
 
@@ -171,6 +207,7 @@ class spacecraft(dynamicalSystem):
         sigma_BN_name = self._hub.getStateAttitudeName()
         v_BN_N_name = self._hub.getStateVelocityName()
         cmg = stateEffector.cmg.getCMG(self, name, mass, r_OiB, Igs, Igt, Igg, BG0, w_BN_name, sigma_BN_name,v_BN_N_name)
+        self.addStateEffector(cmg) # Now I'm adding stateEffectors to both: hub and sc. This might change because is not clear
         self._hub.addStateEffector(cmg)
         return cmg
 
@@ -190,13 +227,20 @@ class spacecraft(dynamicalSystem):
         return
 
     def computeEnergy(self):
-
         E = self._hub.computeEnergy()
         stateEffectors = self._hub.getStateEffectors()
         for effector in stateEffectors:
             E += effector.computeEnergy()
 
         return E
+
+    def computeMechanicalPower(self):
+        P = self._hub.computeMechanicalPower()
+        stateEffectors = self._hub.getStateEffectors()
+        for effector in stateEffectors:
+            P += effector.computeMechanicalPower()
+        return P
+
 
     def computeAngularMomentum(self):
         H = self._hub.computeAngularMomentum()

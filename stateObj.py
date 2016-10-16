@@ -7,7 +7,7 @@ def identity(x): return x
 class stateObj:
     """
     Represents a basic state and its derivative with a name and id, multiplicity (number of columns), and a function to process
-    the state that can be use to impose a constraint (like with quaternions) or switching (like with MRPs).
+    the state that can be used to impose a constraint (like with quaternions) or switching (like with MRPs).
     Only the numerical value of the state and its derivative can change.
     """
 

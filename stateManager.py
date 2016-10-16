@@ -11,10 +11,12 @@ class stateManager:
 
     _stateDic = None
     _all_states = None
+    _all_state_derivatives = None
 
     def __init__(self):
         self._stateDic = {}
         self._all_states = []
+        self._all_state_derivatives = []
         return
 
     def registerState(self, name, multiplicity, state_limit_func = identity):
@@ -154,20 +156,27 @@ class stateManager:
         """
 
         self._all_states = {}
+        self._all_state_derivatives = {} # CONSIDER MOVING THE DERIVATIVES HISTORY SOMEWHERE ELSE
 
         for key,value in self._stateDic.items():
             mult = value.getMultiplicity()
             if mult == 1:
                 state_history = np.zeros(number_of_elements)
+                state_derivative_history = np.zeros(number_of_elements)
             else:
                 state_history = np.zeros((number_of_elements, value.getMultiplicity()))
+                state_derivative_history = np.zeros((number_of_elements, value.getMultiplicity()))
 
             self._all_states[key] = state_history
+            self._all_state_derivatives[key] = state_derivative_history
 
         return
 
     def getStateHistory(self):
         return self._all_states
+
+    def getStateDerivativesHistory(self):
+        return self._all_state_derivatives
 
     def saveState(self, element):
         """
@@ -177,10 +186,13 @@ class stateManager:
         """
         for key, value in self._stateDic.items():
             state_history = self._all_states[key]
+            state_derivative_history = self._all_state_derivatives[key]
 
             if value.getMultiplicity() == 1:
                 state_history[element] = value.getState()
+                state_derivative_history[element] = value.getStateDerivatives()
             else:
                 state_history[element, :] = value.getState()
+                state_derivative_history[element,:] = value.getStateDerivatives()
 
         return

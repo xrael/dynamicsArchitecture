@@ -27,8 +27,9 @@ def getSkewSymmetrixMatrix(vector):
     return vector_tilde
 
 def angleTrimming(angle):
-    if angle >= 2*np.pi or angle < 0:
-        angle = angle % (2*np.pi)
+    angle = angle % (2*np.pi)
+    if angle > np.pi:
+        angle = angle - 2*np.pi
     return angle
 
 
