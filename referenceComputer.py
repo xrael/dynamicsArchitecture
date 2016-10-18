@@ -22,9 +22,9 @@ class referenceComputer:
 
     _referenceManager = None
 
-    def __init__(self, period, t0):
+    def __init__(self, period):
         self._period = period
-        self._lastTime = t0 - period
+        self._lastTime = 0.0
         self._referenceManager = stateManager.stateManager()
 
         self._referenceManager.registerState('sigma_RN', 3)
@@ -32,13 +32,14 @@ class referenceComputer:
         self._referenceManager.registerState('w_RN_R_dot', 3)
         return
 
-    @abstractmethod
-    def start(self):
+    def start(self, t0):
         """
         Run this method to get the reference computer started before calling runReferenceComputing()
+        :param t0:
         :return:
         """
-        pass
+        self._lastTime = t0 - self._period
+        return
 
     def runReferenceComputing(self, t):
         """
@@ -105,8 +106,8 @@ class regulationReference(referenceComputer):
     Implements a simple regulation problem:
     """
 
-    def __init__(self, period, t0):
-        super(regulationReference, self).__init__(period, t0)
+    def __init__(self, period):
+        super(regulationReference, self).__init__(period)
 
         return
 
@@ -117,7 +118,8 @@ class regulationReference(referenceComputer):
         self._w_RN_R_dot = np.zeros(3)
         return
 
-    def start(self):
+    def start(self, t0):
+        super(regulationReference, self).start(t0)
         return
 
     def computeReference(self,t):
@@ -138,8 +140,8 @@ class nadirPointingReference(referenceComputer):
     _mu = 0.0
     _r_HN_H = np.zeros(3)
 
-    def __init__(self, period, t0, raan, inc, a, mu):
-        super(nadirPointingReference, self).__init__(period, t0)
+    def __init__(self, period, raan, inc, a, mu):
+        super(nadirPointingReference, self).__init__(period)
         self._raan = raan
         self._inc = inc
         self._a = a
@@ -148,7 +150,8 @@ class nadirPointingReference(referenceComputer):
         self._r_HN_H = np.array([a, 0.0, 0.0])                    # Satellite position in Hill Frame
         return
 
-    def start(self):
+    def start(self, t0):
+        super(nadirPointingReference, self).start(t0)
         return
 
     def computeReference(self,t):

@@ -21,14 +21,15 @@ class flightSoftware:
     def getReferenceComputer(self):
         return self._referenceComputer
 
-    def initFlightSoftware(self):
+    def initFlightSoftware(self, t0):
         """
         Call this method to get the flight sofwtare started.
+        :param t0: [double] Initial time.
         :return:
         """
-        self._estimator.start()
-        self._referenceComputer.start()
-        self._controller.start()
+        self._estimator.start(t0)
+        self._referenceComputer.start(t0)
+        self._controller.start(t0)
         return
 
 

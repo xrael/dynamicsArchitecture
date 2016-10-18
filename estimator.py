@@ -15,24 +15,24 @@ class estimator:
     _period = 0.0       # [sec] The estimator process should run every _period seconds
     _lastTime = 0.0
 
-    def __init__(self, period, t0):
+    def __init__(self, period):
         """
 
         :param period: [sec] 1/period is the estimation frequency.
-        :param t0:
         :return:
         """
         self._period = period
-        self._lastTime = t0 - period
+        self._lastTime = 0.0
         return
 
-    @abstractmethod
-    def start(self):
+    def start(self, t0):
         """
-        Run this method to get the estimator started before calling runControl()
+        Run this method to get the estimator started before calling runControl().
+        :param t0:
         :return:
         """
-        pass
+        self._lastTime = t0 - self._period
+        return
 
     def runEstimation(self, t):
         """
@@ -71,14 +71,15 @@ class idealEstimator(estimator):
     _w_BN_B_name = ''
     _sigma_BN_name = ''
 
-    def __init__(self, spacecraft, period, t0, sigma_BN_name, w_BN_B_name):
-        super(idealEstimator, self).__init__(period, t0)
+    def __init__(self, spacecraft, period, sigma_BN_name, w_BN_B_name):
+        super(idealEstimator, self).__init__(period)
         self._spacecraft = spacecraft
         self._w_BN_B_name = w_BN_B_name
         self._sigma_BN_name = sigma_BN_name
         return
 
-    def start(self):
+    def start(self, t0):
+        super(idealEstimator, self).start(t0)
         return
 
     def estimate(self, t):

@@ -87,7 +87,7 @@ a = R_T + h                 # [km] Semimajor axis
 
 ######## Simulation parameters
 t0 = 0.0
-tf = 140.0
+tf = 200.0
 dt = 0.01
 
 ######## Control
@@ -104,21 +104,19 @@ elif USE_CONTROL and not CONTROL_TWO_LOOPS:
 else:
     plot_super = '_control_2_loops'
 
+
 # Gains
 K_sigma = 1.0
-P_w = np.eye(3) * 5.0
-K_gamma_dot = np.ones(nmbr_vscmgs) * 10.0
+P_w = np.eye(3) * 10.0
+K_gamma_dot = np.ones(nmbr_vscmgs) * 20.0
 K_Omega_dot = np.ones(nmbr_vscmgs) * 1.0
 weights = np.ones(2 * nmbr_vscmgs)
-weights[:nmbr_vscmgs] = weights[:nmbr_vscmgs] * 20 #20
-mu_weights = np.ones(nmbr_vscmgs) * 1.0 #1e-1 #10
+weights[:nmbr_vscmgs] = weights[:nmbr_vscmgs] * 10.0 # 20
+mu_weights = np.ones(nmbr_vscmgs) * 1.0 #1.0
 
 # Control loop steps
 outer_loop_step = 0.1        # 10 Hz
 innerLoop_step = 0.01        # 100 Hz
-
-# set Point
-mrp_RN = np.array([0.0, 0.0, 0.0])
 
 ##### Reference computer
 reference_computer_step = dt
@@ -149,12 +147,14 @@ vscmg4 = spacecraft.addVSCMG('VSCMG_4', m_vscmg, R_O4B_vscmg, Igs, Igt, Igg, Iws
 
 
 if USE_CONTROL:
-    estimator = estimator.idealEstimator(spacecraft, estimator_step, t0,'hub_sigma_BN', 'hub_omega_BN')
-    referenceComp = referenceComputer.nadirPointingReference(reference_computer_step, t0, raan, inc, a, mu)
-    control = controller.vscmgSteeringController(estimator, (vscmg1, vscmg2, vscmg3, vscmg4), referenceComp, outer_loop_step, innerLoop_step, t0, K_sigma, P_w, K_gamma_dot, K_Omega_dot, weights, mu_weights)
+    estimator = estimator.idealEstimator(spacecraft, estimator_step,'hub_sigma_BN', 'hub_omega_BN')
+    referenceComp = referenceComputer.nadirPointingReference(reference_computer_step, raan, inc, a, mu)
+    control = controller.vscmgSteeringController(estimator, (vscmg1, vscmg2, vscmg3, vscmg4), referenceComp, outer_loop_step, innerLoop_step, K_sigma, P_w, K_gamma_dot, K_Omega_dot, weights, mu_weights)
     control.setMaxGimbalTorque(ug_max)
     control.setMaxWheelTorque(us_max)
     simulator.setControls(estimator, control, referenceComp)
+
+
 
 # Initial Conditions
 simulator.setInitialConditions('hub_R_BN', np.array([0.0, 0.0, 0.0]))
@@ -176,6 +176,7 @@ simulator.setInitialConditions('VSCMG_4_Omega', -nominal_speed_wheel * 2*np.pi/(
 
 simulator.computeEnergy(True)
 simulator.computeAngularMomentum(True)
+
 
 simulator.simulate()
 
@@ -285,28 +286,6 @@ P_numerical[0] = P_numerical[1]
 
 plt.figure()
 plt.hold(True)
-plt.plot(time, R_BN[:,0], label='$x_{BN}$')
-plt.plot(time, R_BN[:,1], label='$y_{BN}$')
-plt.plot(time, R_BN[:,2], label='$z_{BN}$')
-plt.xlabel("Time [sec]")
-plt.ylabel("$R_{BN}$ $[m]$", size=18)
-plt.legend()
-plt.savefig('../report/include/R_BN' + plot_super +'.png', bbox_inches='tight', dpi=300)
-plt.close()
-#
-# plt.figure()
-# plt.hold(True)
-# plt.plot(time, v_BN[:,0], label='$\dot x_{BN}$')
-# plt.plot(time, v_BN[:,1], label='$\dot y_{BN}$')
-# plt.plot(time, v_BN[:,2], label='$\dot z_{BN}$')
-# plt.xlabel("Time [sec]")
-# plt.ylabel("$v_{BN}$ $[m/s]$", size=18)
-# plt.legend()
-# plt.savefig('../report/include/v_BN' + plot_super +'.png', bbox_inches='tight', dpi=300)
-# plt.close()
-
-plt.figure()
-plt.hold(True)
 plt.plot(time, sigma_BN[:,0], label='$\sigma_1$', color='r')
 plt.plot(time, sigma_BN[:,1], label='$\sigma_2$', color='g')
 plt.plot(time, sigma_BN[:,2], label='$\sigma_3$', color='b')
@@ -317,7 +296,7 @@ if USE_CONTROL and CONTROL_TWO_LOOPS:
 plt.xlabel("Time [sec]")
 plt.ylabel("$\sigma$", size=18)
 plt.legend()
-plt.savefig('../report/include/sigma_BN' + plot_super +'.png', bbox_inches='tight', dpi=300)
+plt.savefig('../report/include/sigma_BN' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 plt.figure()
@@ -333,7 +312,7 @@ plt.ylim([-0.01,0.01])
 plt.xlabel("Time [sec]")
 plt.ylabel("$\omega$ $[rad/sec]$", size=18)
 plt.legend()
-plt.savefig('../report/include/w_BN' + plot_super +'.png', bbox_inches='tight', dpi=300)
+plt.savefig('../report/include/w_BN' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 plt.figure()
@@ -344,7 +323,7 @@ plt.plot(time, H[:,2], label='$H_3$')
 plt.xlabel("Time [sec]")
 plt.ylabel("$H$ $[kg m^2/s]$", size=18)
 plt.legend()
-plt.savefig('../report/include/angular_momentum' + plot_super +'.png', bbox_inches='tight', dpi=300)
+plt.savefig('../report/include/angular_momentum' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 plt.figure()
@@ -361,7 +340,7 @@ if USE_CONTROL:
 plt.xlabel("Time [sec]")
 plt.ylabel("$\Omega$ $[rpm]$", size=18)
 plt.legend()
-plt.savefig('../report/include/vscmg_omega' + plot_super +'.png', bbox_inches='tight', dpi=300)
+plt.savefig('../report/include/vscmg_omega' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 plt.figure()
@@ -378,7 +357,7 @@ if USE_CONTROL:
 plt.xlabel("Time [sec]")
 plt.ylabel("$\Omega$ $[rpm/sec]$", size=18)
 plt.legend()
-plt.savefig('../report/include/vscmg_omega_dot' + plot_super +'.png', bbox_inches='tight', dpi=300)
+plt.savefig('../report/include/vscmg_omega_dot' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 plt.figure()
@@ -390,7 +369,7 @@ plt.plot(time, vscmg_gamma_4 * 180/np.pi, label='$\gamma_{VSCMG-4}$')
 plt.xlabel("Time [sec]")
 plt.ylabel("$\gamma_{VSCMG}$ $[^\circ]$", size=18)
 plt.legend()
-plt.savefig('../report/include/vscmg_gamma' + plot_super +'.png', bbox_inches='tight', dpi=300)
+plt.savefig('../report/include/vscmg_gamma' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 plt.figure()
@@ -404,10 +383,11 @@ if USE_CONTROL:
     plt.plot(time, vscmg_gamma_dot_desired2 * 180/np.pi, '--', label='$\dot\gamma_{VSCMG-2-d}$')
     plt.plot(time, vscmg_gamma_dot_desired3 * 180/np.pi, '--', label='$\dot\gamma_{VSCMG-3-d}$')
     plt.plot(time, vscmg_gamma_dot_desired4 * 180/np.pi, '--', label='$\dot\gamma_{VSCMG-4-d}$')
+plt.ylim([-15,15])
 plt.xlabel("Time [sec]")
 plt.ylabel("$\dot\gamma_{VSCMG}$ $[^\circ/s]$", size=18)
 plt.legend()
-plt.savefig('../report/include/vscmg_gamma_dot' + plot_super +'.png', bbox_inches='tight', dpi=300)
+plt.savefig('../report/include/vscmg_gamma_dot' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 if USE_CONTROL:
@@ -420,7 +400,7 @@ if USE_CONTROL:
     plt.xlabel("Time [sec]")
     plt.ylabel("$u_{g_{VSCMG}}$ $[mN m]$", size=18)
     plt.legend()
-    plt.savefig('../report/include/vscmg_ug' + plot_super +'.png', bbox_inches='tight', dpi=300)
+    plt.savefig('../report/include/vscmg_ug' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
     plt.close()
 
     plt.figure()
@@ -432,7 +412,7 @@ if USE_CONTROL:
     plt.xlabel("Time [sec]")
     plt.ylabel("$u_{s_{VSCMG}}$ $[mN m]$", size=18)
     plt.legend()
-    plt.savefig('../report/include/vscmg_us' + plot_super +'.png', bbox_inches='tight', dpi=300)
+    plt.savefig('../report/include/vscmg_us' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
     plt.close()
 
     plt.figure()
@@ -441,11 +421,11 @@ if USE_CONTROL:
     plt.plot(time, vscmg_delta_2, label='$\delta_2$')
     plt.plot(time, vscmg_delta_3, label='$\delta_3$')
     plt.plot(time, vscmg_delta_4, label='$\delta_4$')
-    plt.ylim([-1,5])
+    plt.ylim([-0.01,0.5])
     plt.xlabel("Time [sec]")
     plt.ylabel("$\delta$", size=18)
     plt.legend()
-    plt.savefig('../report/include/vscmg_delta' + plot_super +'.png', bbox_inches='tight', dpi=300)
+    plt.savefig('../report/include/vscmg_delta' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
     plt.close()
 
     plt.figure()
@@ -456,7 +436,7 @@ if USE_CONTROL:
     plt.xlabel("Time [sec]")
     plt.ylabel("$\sigma_{BR}$", size=18)
     plt.legend()
-    plt.savefig('../report/include/sigma_BR' + plot_super +'.png', bbox_inches='tight', dpi=300)
+    plt.savefig('../report/include/sigma_BR' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
     plt.close()
 
     plt.figure()
@@ -467,7 +447,7 @@ if USE_CONTROL:
     plt.xlabel("Time [sec]")
     plt.ylabel("$\omega_{BR}$ $[rad/sec]$", size=18)
     plt.legend()
-    plt.savefig('../report/include/w_BR' + plot_super +'.png', bbox_inches='tight', dpi=300)
+    plt.savefig('../report/include/w_BR' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
     plt.close()
 
     plt.figure()
@@ -478,8 +458,9 @@ if USE_CONTROL:
     plt.xlabel("Time [sec]")
     plt.ylabel("$L_r$", size=18)
     plt.legend()
-    plt.savefig('../report/include/Lr' + plot_super +'.png', bbox_inches='tight', dpi=300)
+    plt.savefig('../report/include/Lr' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
     plt.close()
+
 
 
 if not USE_CONTROL and not USE_CONSTANT_TORQUES:
@@ -488,7 +469,7 @@ if not USE_CONTROL and not USE_CONSTANT_TORQUES:
     plt.plot(time, T-T[0])
     plt.xlabel("Time [sec]")
     plt.ylabel("$\Delta T$ $[J]$", size=18)
-    plt.savefig('../report/include/energy' + plot_super +'.png', bbox_inches='tight', dpi=300)
+    plt.savefig('../report/include/energy' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
     plt.close()
 else:
     plt.figure()
@@ -496,7 +477,7 @@ else:
     plt.plot(time, T)
     plt.xlabel("Time [sec]")
     plt.ylabel("$T$ $[J]$", size=18)
-    plt.savefig('../report/include/energy' + plot_super +'.png', bbox_inches='tight', dpi=300)
+    plt.savefig('../report/include/energy' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
     plt.close()
 
 plt.figure()
@@ -506,19 +487,7 @@ plt.plot(time, P_numerical, label='Numerically computed power')
 plt.xlabel("Time [sec]")
 plt.ylabel("$P$ $[W]$", size=18)
 plt.legend()
-plt.savefig('../report/include/power' + plot_super +'.png', bbox_inches='tight', dpi=300)
-plt.close()
-
-plt.figure()
-plt.hold(True)
-plt.plot(time, gt1[:,2], label='$g_{t-1-z}$')
-plt.plot(time, gt2[:,2], label='$g_{t-2-z}$')
-plt.plot(time, gt3[:,2], label='$g_{t-3-z}$')
-plt.plot(time, gt4[:,2], label='$g_{t-4-z}$')
-plt.xlabel("Time [sec]")
-plt.ylabel("$g_{t-z}", size=18)
-plt.legend()
-plt.savefig('../report/include/gt_z' + plot_super +'.png', bbox_inches='tight', dpi=300)
+plt.savefig('../report/include/power' + plot_super +'.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 
@@ -528,7 +497,7 @@ plt.close()
 # plt.plot(time, cmg_gamma_1 * 180/np.pi)
 # plt.xlabel("Time [sec]")
 # plt.ylabel("$\gamma_{CMG-1}$ $[\text{rpm}]$", size=18)
-# plt.savefig('../report/include/cmg_gamma_1.png', bbox_inches='tight', dpi=300)
+# plt.savefig('../report/include/cmg_gamma_1.pdf', bbox_inches='tight', dpi=300)
 # plt.close()
 #
 # plt.figure()
@@ -536,7 +505,7 @@ plt.close()
 # plt.plot(time, cmg_gamma_dot_1 * 180/np.pi)
 # plt.xlabel("Time [sec]")
 # plt.ylabel("$\dot\gamma_{CMG-1}$ $[^\circ/seg]$", size=18)
-# plt.savefig('../report/include/cmg_gamma_dot_1.png', bbox_inches='tight', dpi=300)
+# plt.savefig('../report/include/cmg_gamma_dot_1.pdf', bbox_inches='tight', dpi=300)
 # plt.close()
 #
 # plt.figure()
@@ -544,5 +513,5 @@ plt.close()
 # plt.plot(time, rw_Omega_1 * 60.0/(2*np.pi))
 # plt.xlabel("Time [sec]")
 # plt.ylabel("$\Omega_{CMG-1}$ $[\text{rpm}]$", size=18)
-# plt.savefig('../report/include/rw_omega_1.png', bbox_inches='tight', dpi=300)
+# plt.savefig('../report/include/rw_omega_1.pdf', bbox_inches='tight', dpi=300)
 # plt.close()

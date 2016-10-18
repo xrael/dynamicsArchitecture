@@ -150,7 +150,7 @@ class simulatorManager:
 
         if self._controlFlag:
             self._flightSoftware.createControlForceHistory(l)
-            self._flightSoftware.initFlightSoftware()
+            self._flightSoftware.initFlightSoftware(self._t0)
 
         if self._computeEnergy:
             self._energy = np.zeros(l)
