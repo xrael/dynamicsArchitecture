@@ -160,39 +160,6 @@ class stateEffector:
         """
         pass
 
-    # @abstractmethod
-    # def computeRHS(self):
-    #     """
-    #     It is assumed that each effector is only connected to one another, called parent.
-    #     This method is to be used to implement the effect that this effector produces on the Right Hand Side
-    #     of the equations of motion of its parent.
-    #     This method is inherited from dynamicEffector which also produces a RHS effect.
-    #     :return: [tuple] Contributions to the RHS of the equations of motion of its parent.
-    #     """
-    #     pass
-    #
-    # @abstractmethod
-    # def computeLHS(self):
-    #     """
-    #     It is assumed that each effector is only connected to one another, called parent.
-    #     This method is to be used to implement the effect that this effector produces on the Left Hand Side
-    #     of the equations of motion of its parent.
-    #     This is characteristic of a state effector.
-    #     :return:
-    #     """
-    #     pass
-    #
-    # @abstractmethod
-    # def computeMassProperties(self):
-    #     """
-    #     It is assumed that each effector is only connected to one another, called parent.
-    #     This method is to be used to implement the effect that this effector produces on the mass properties
-    #     (mass, inertia, center of mass) of the whole system.
-    #     This is characteristic of a state effector.
-    #     :return: [tuple] mass, mass rate, inertia, inertia rate, CoM, CoM rate.
-    #     """
-    #     pass
-
     @abstractmethod
     def computeStateDerivatives(self, t):
         """
@@ -304,52 +271,6 @@ class spacecraftHub(stateEffector):
         hub.registerStates()
 
         return hub
-
-    # def setMass(self, mass):
-    #     self._mass = mass
-    #     self._I_B = self._I_CoM + self._mass * self._CoM_tilde.dot(self._CoM_tilde.T)
-    #     self._mr_BcB_B = self._mass * self._CoM
-    #     return
-    #
-    # def setInertia(self, inertia):
-    #     """
-    #     Sets the inertia relative to its center of mass.
-    #     :param inertia:
-    #     :return:
-    #     """
-    #     self._I_CoM = inertia
-    #     self._I_B = self._I_CoM + self._mass * self._CoM_tilde.dot(self._CoM_tilde.T)
-    #     return
-    #
-    # def setHubCoMOffset(self, CoM_offset):
-    #     """
-    #     Sets the center of mass offset relative to the reference point.
-    #     :param CoM_offset: [1-dim numpy array] Position of the center of mass of the effector relative to the reference B.
-    #     :return:
-    #     """
-    #     self._CoM = CoM_offset
-    #     self._CoM_tilde = attitudeKinematics.getSkewSymmetrixMatrix(CoM_offset)
-    #     self._I_B = self._I_CoM + self._mass * self._CoM_tilde.dot(self._CoM_tilde.T)
-    #     return
-    #
-    # def getHubMass(self):
-    #     return self._m_hub
-    #
-    # def getHubInertia(self):
-    #     return self._I_B
-    #
-    # def getHubCoMOffset(self):
-    #     return self._r_BcB_B
-
-    # def get_W_BN_B(self):
-    #     stateMan = self._dynSystem.getStateManager()
-    #     w_BN = stateMan.getStates(self._stateAngularVelocityName)
-    #     return w_BN
-    #
-    # def get_sigma_BN(self):
-    #     stateMan = self._dynSystem.getStateManager()
-    #     sigma_BN = stateMan.getStates(self._stateAttitudeName)
-    #     return sigma_BN
 
 
     #------------------State Name getters------------------#
@@ -500,32 +421,6 @@ class spacecraftHub(stateEffector):
 
         return (A_contr, B_contr, C_contr, D_contr, f_r_BN_dot_contr, f_w_BN_dot_contr, m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr)
 
-
-    # def computeRHS(self):
-    #     stateMan = self._dynSystem.getStateManager()
-    #     w_BN = stateMan.getStates(self._stateAngularVelocityName)
-    #     w_BN_tilde = attitudeKinematics.getSkewSymmetrixMatrix(w_BN)
-    #
-    #     f_r_BN_dot = -w_BN_tilde.dot(w_BN_tilde).dot(self._mr_BcB_B)
-    #     f_w_dot = - w_BN_tilde.dot(self._I_B).dot(w_BN)
-    #     return (f_r_BN_dot, f_w_dot)
-    #
-    # def computeLHS(self):
-    #     A_contr = self._m_hub * np.eye(3)
-    #     B_contr = -attitudeKinematics.getSkewSymmetrixMatrix(self._mr_BcB_B)
-    #     C_contr = attitudeKinematics.getSkewSymmetrixMatrix(self._mr_BcB_B)
-    #     D_contr = self._I_B
-    #     return (A_contr, B_contr, C_contr, D_contr)
-    #
-    # def computeMassProperties(self):
-    #     I_contr = self._I_B
-    #     I_prime_contr = np.zeros((3,3))
-    #     m_contr = self._m_hub
-    #     m_prime_contr = 0.0
-    #     com_contr = self._r_BcB_B
-    #     com_prime_contr = np.zeros(3)
-    #     return (m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr)
-
     def computeEnergy(self):
         stateMan = self._dynSystem.getStateManager()
 
@@ -572,6 +467,9 @@ class vscmg(stateEffector):
     _ug = 0.0                       # [Nm] Gimbal torque input
     _us = 0.0                       # [Nm] RW torque input
 
+    _ugMax = 1000.0                 # [Nm] Maximum gimbal torque
+    _usMax = 1000.0                 # [Nm] Maximum RW torque
+
     _nominalSpeedRPM = 0.0          # [rpm] Nominal speed of the wheels
 
     _w_BN_B_name = ''
@@ -597,6 +495,8 @@ class vscmg(stateEffector):
 
         self._ug = 0.0
         self._us = 0.0
+        self._ugMax = 1000.0
+        self._usMax = 1000.0
 
         self._nominalSpeedRPM = 1000.0
 
@@ -646,6 +546,24 @@ class vscmg(stateEffector):
         vscmgObj._us = us
         vscmgObj._nominalSpeedRPM = nominal_speed_rpm
         return vscmgObj
+
+    def setMaxGimbalTorque(self, ugMax):
+        """
+        Sets the maximum gimbal torque the VSCMG can apply.
+        :param ugMax: [double] torque in Nm.
+        :return:
+        """
+        self._ugMax = ugMax
+        return
+
+    def setMaxWheelTorque(self, usMax):
+        """
+        Sets the maximum wheel torque the VSCMG can apply
+        :param usMax: [double] torque in Nm.
+        :return:
+        """
+        self._usMax = usMax
+        return
 
     def setW_BNname(self, w_BN_B_name):
         self._w_BN_B_name = w_BN_B_name
@@ -745,7 +663,10 @@ class vscmg(stateEffector):
         :param ug: [double] Torque in Nm.
         :return:
         """
-        self._ug = ug
+        if np.abs(ug) <= self._ugMax:
+            self._ug = ug
+        else:
+            self._ug = np.sign(ug) * self._ugMax
         return
 
     def setWheelTorqueCommand(self, us):
@@ -755,7 +676,10 @@ class vscmg(stateEffector):
         :param us: [double] Torque in Nm.
         :return:
         """
-        self._us = us
+        if np.abs(us) <= self._usMax:
+            self._us = us
+        else:
+            self._us = np.sign(us) * self._usMax
         return
     #------------------------------------------------------#
 
@@ -881,97 +805,6 @@ class vscmg(stateEffector):
 
         return (A_contr, B_contr, C_contr, D_contr, f_r_BN_dot_contr, f_w_BN_dot_contr, m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr)
 
-
-    # def computeRHS(self):
-    #
-    #     stateMan = self._dynSystem.getStateManager()
-    #
-    #     w_BN = stateMan.getStates(self._w_BN_B_name)
-    #     gamma = stateMan.getStates(self._stateGimbalAngleName)
-    #     gamma_dot = stateMan.getStates(self._stateGimbalRateName)
-    #     Omega = stateMan.getStates(self._stateRWrateName)
-    #
-    #     Iws = self._Iw[0,0]
-    #     Iwt = self._Iw[1,1]
-    #     Js = self._Ig[0,0] + Iws
-    #     Jt = self._Ig[1,1] + Iwt
-    #     Jg = self._Ig[2,2] + Iwt
-    #
-    #     GG0 = coordinateTransformations.ROT3(gamma)
-    #
-    #     BG = self._BG0.dot(GG0.T)
-    #
-    #     gs_hat = BG[:,0]
-    #     gt_hat = BG[:,1]
-    #     gg_hat = BG[:,2]
-    #
-    #     ws = np.inner(gs_hat, w_BN)
-    #     wt = np.inner(gt_hat, w_BN)
-    #     wg = np.inner(gg_hat, w_BN)
-    #
-    #     us = self.computeRWControlTorque()
-    #     ug = self.computeGimbalControlTorque()
-    #
-    #     w_BN_tilde = attitudeKinematics.getSkewSymmetrixMatrix(w_BN)
-    #
-    #     I_B = -self._m_vscmg * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + BG.dot(self._Ig + self._Iw).dot(BG.T)
-    #
-    #     f_r_BN_dot_contr = -w_BN_tilde.dot(w_BN_tilde).dot(self._mr_OiB_B)
-    #     f_w_BN_dot_contr = -w_BN_tilde.dot(I_B).dot(w_BN) \
-    #                        -gs_hat * ((Js - Jt + Jg) * wt * gamma_dot - Iws * wt * gamma_dot + us) \
-    #                        -gt_hat * (((Js - Jt - Jg) * ws + Iws * Omega) * gamma_dot + Iws * wg * Omega) \
-    #                        -gg_hat * (ug - (Jt - Js) * ws * wt)
-    #
-    #     return (f_r_BN_dot_contr, f_w_BN_dot_contr)
-    #
-    # def computeMassProperties(self):
-    #
-    #     stateMan = self._dynSystem.getStateManager()
-    #
-    #     gamma = stateMan.getStates(self._stateGimbalAngleName)
-    #
-    #     GG0 = coordinateTransformations.ROT3(gamma)
-    #
-    #     BG = self._BG0.dot(GG0.T)
-    #
-    #     m_contr = self._m_vscmg
-    #     m_prime_contr = 0.0
-    #     I_contr = -self._m_vscmg * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + BG.dot(self._Ig + self._Iw).dot(BG.T)
-    #     I_prime_contr = np.zeros((3,3))
-    #     com_contr = self._mr_OiB_B
-    #     com_prime_contr = np.zeros(3)
-    #
-    #     return (m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr)
-    #
-    # def computeLHS(self):
-    #
-    #     stateMan = self._dynSystem.getStateManager()
-    #
-    #     gamma = stateMan.getStates(self._stateGimbalAngleName)
-    #
-    #     Igs = self._Ig[0,0]
-    #     Iwt = self._Iw[1,1]
-    #     Jt = self._Ig[1,1] + Iwt
-    #
-    #     GG0 = coordinateTransformations.ROT3(gamma)
-    #
-    #     BG = self._BG0.dot(GG0.T)
-    #
-    #     gs_hat = BG[:,0]
-    #     gt_hat = BG[:,1]
-    #
-    #     gs_outer = np.outer(gs_hat, gs_hat)
-    #     gt_outer = np.outer(gt_hat, gt_hat)
-    #
-    #     mr_OiB_B_tilde = attitudeKinematics.getSkewSymmetrixMatrix(self._mr_OiB_B)
-    #
-    #     A_contr = self._m_vscmg * np.eye(3)
-    #     B_contr = -mr_OiB_B_tilde
-    #     C_contr = mr_OiB_B_tilde
-    #     D_contr = -self._m_vscmg * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + Igs * gs_outer + Jt * gt_outer
-    #
-    #     return (A_contr, B_contr, C_contr, D_contr)
-
     def computeEnergy(self):
 
         stateMan = self._dynSystem.getStateManager()
@@ -1084,6 +917,11 @@ class reactionWheel(stateEffector):
     # _r_OiB_B_tilde = None
     #_mr_OiB_B = None            # [kg m] Momentum of order 1 (_m_rw * _r_OiB_B)
 
+    _us = 0.0                   # [Nm] Input torque
+    _usMax = 1000.0             # [Nm] Maximum torque
+
+    _nominalSpeedRPM = 0.0
+
     _w_BN_B_name = ''
     _sigma_BN_name = ''
     _v_BN_N_name = ''
@@ -1100,6 +938,11 @@ class reactionWheel(stateEffector):
         # self._mr_OiB_B = self._mass * self._CoM
         self.setInertia(self._BW.dot(self._Iw).dot(self._BW.T))
 
+        self._us = 0.0
+        self._usMax = 1000.0
+
+        self._nominalSpeedRPM = 1000.0
+
         self._w_BN_B_name = w_BN_B_name
         self._sigma_BN_name = sigma_BN_name
         self._v_BN_N_name = v_BN_N_name
@@ -1110,7 +953,7 @@ class reactionWheel(stateEffector):
         return
 
     @classmethod
-    def getRW(cls, dynSystem, name, m, r_OiB_B, Iws, Iwt, BW,  w_BN_B_name, sigma_BN_name, v_BN_N_name):
+    def getRW(cls, dynSystem, name, m, r_OiB_B, Iws, Iwt, BW,  w_BN_B_name, sigma_BN_name, v_BN_N_name, nominal_speed_rpm, us = 0.0):
         """
         Use this factory method to create a RW.
         :param dynSystem: [dynamicalSystem] System which the RW is attached to.
@@ -1123,16 +966,29 @@ class reactionWheel(stateEffector):
         :param w_BN_B_name: [string] Name that identifies W_BN_B state.
         :param sigma_BN_name: [string] Name that identifies sigma_BN state.
         :param v_BN_N_name: [string] Name that identifies v_BN_N state.
+        :param nominal_speed_rpm: [double] Nominal speed of the wheel in rpm.
+        :param us: Optional initial wheel torque.
         :return: [rw]
         """
         rwObj = reactionWheel(dynSystem, name, w_BN_B_name, sigma_BN_name, v_BN_N_name)
         rwObj.registerStates()
-        rwObj._m_rw = m
+        rwObj._mass = m
         rwObj.setCoMOffset(r_OiB_B)
         rwObj.setWheelInertia(Iws, Iwt)
         rwObj._BW = BW
         rwObj.setInertia(BW.dot(rwObj._Iw).dot(BW.T))
+        rwObj._nominalSpeedRPM = nominal_speed_rpm
+        rwObj._us = us
         return rwObj
+
+    def setMaxWheelTorque(self, usMax):
+        """
+        Sets the maximum wheel torque the VSCMG can apply
+        :param usMax: [double] torque in Nm.
+        :return:
+        """
+        self._usMax = usMax
+        return
 
     def setW_BNname(self, w_BN_B_name):
         self._w_BN_B_name = w_BN_B_name
@@ -1142,14 +998,65 @@ class reactionWheel(stateEffector):
         self._Iw = np.diag(np.array([Iws, Iwt, Iwt]))
         return
 
-    def registerStates(self):
+    def getWheelInertia(self):
+        return self._Iw
 
+    def getBWmatrix(self):
+        return self._BW
+
+    def registerStates(self):
         stateMan = self._dynSystem.getStateManager()
 
         if not stateMan.registerState(self._stateRWrateName, 1):
             return False
         else:
             return True
+
+    def getNominalRWangularMomentum(self):
+        """
+        This is a stupid method that should return the nominal angular mometum based on nominal velocity.
+        :return:
+        """
+        nominal_Omega = self._nominalSpeedRPM * 2*np.pi/60
+        return self._Iw[0,0] * nominal_Omega
+
+    #-----------------RW interface---------------------#
+    # The following methods simulate the software
+    # interface of the RW.
+
+    def getOmegaEstimate(self):
+        """
+        Estimator that gives the value of the RW velocity.
+        It's currently simulated as an ideal estimator with infinite frequency
+        :return:
+        """
+        stateMan = self._dynSystem.getStateManager()
+        Omega = stateMan.getStates(self._stateRWrateName)
+        return Omega
+
+    def getOmegaDotEstimate(self):
+        """
+        Estimator that gives the value of the RW acceleration.
+        It's currently simulated as an ideal estimator with infinite frequency
+        :return:
+        """
+        stateMan = self._dynSystem.getStateManager()
+        Omega_dot = stateMan.getStateDerivatives(self._stateRWrateName)
+        return Omega_dot
+
+    def setWheelTorqueCommand(self, us):
+        """
+        This is part of the command interface of the VSCMG.
+        You can set the wheel control torque using this method.
+        :param us: [double] Torque in Nm.
+        :return:
+        """
+        if np.abs(us) <= self._usMax:
+            self._us = us
+        else:
+            self._us = np.sign(us) * self._usMax
+        return
+    #------------------------------------------------------#
 
     #----------------StateEffector interface---------------#
     def startSimulation(self):
@@ -1160,13 +1067,12 @@ class reactionWheel(stateEffector):
         stateMan = self._dynSystem.getStateManager()
 
         w_BN_dot = stateMan.getStateDerivatives(self._w_BN_B_name)
-        us = self.computeRWControlTorque()
 
         Iws = self._Iw[0,0]
 
         gs_hat = self._BW[:,0]
 
-        Omega_dot = us/Iws - np.inner(gs_hat, w_BN_dot)
+        Omega_dot = self._us/Iws - np.inner(gs_hat, w_BN_dot)
 
         stateMan.setStateDerivatives(self._stateRWrateName, Omega_dot)
 
@@ -1188,8 +1094,6 @@ class reactionWheel(stateEffector):
         gt_outer = np.outer(gt_hat, gt_hat)
         gg_outer = np.outer(gg_hat, gg_hat)
 
-        us = self.computeRWControlTorque()
-
         w_BN_tilde = attitudeKinematics.getSkewSymmetrixMatrix(w_BN)
 
         mr_OiB_B_tilde = self._mass * self._CoM_tilde
@@ -1199,7 +1103,7 @@ class reactionWheel(stateEffector):
         # RHS contributions
         f_r_BN_dot_contr = -w_BN_tilde.dot(w_BN_tilde).dot(self._mCoM)
         f_w_BN_dot_contr = -w_BN_tilde.dot(self._I_B).dot(w_BN) \
-                           - gs_hat * us \
+                           - gs_hat * self._us \
                            - (Iws * Omega) * w_BN_tilde.dot(gs_hat)
 
         # LHS contributions
@@ -1217,65 +1121,6 @@ class reactionWheel(stateEffector):
         com_prime_contr = np.zeros(3)
 
         return (A_contr, B_contr, C_contr, D_contr, f_r_BN_dot_contr, f_w_BN_dot_contr, m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr)
-
-
-    # def computeRHS(self):
-    #
-    #     stateMan = self._dynSystem.getStateManager()
-    #
-    #     w_BN = stateMan.getStates(self._w_BN_B_name)
-    #     Omega = stateMan.getStates(self._stateRWrateName)
-    #
-    #     Iws = self._Iw[0,0]
-    #     Iwt = self._Iw[1,1]
-    #
-    #     gs_hat = self._BW[:,0]
-    #
-    #     us = self.computeRWControlTorque()
-    #
-    #     w_BN_tilde = attitudeKinematics.getSkewSymmetrixMatrix(w_BN)
-    #
-    #     I_B = -self._m_rw * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + self._BW.dot(self._Iw).dot(self._BW.T)
-    #
-    #     f_r_BN_dot_contr = -w_BN_tilde.dot(w_BN_tilde).dot(self._mr_OiB_B)
-    #     f_w_BN_dot_contr = -w_BN_tilde.dot(I_B).dot(w_BN) \
-    #                        - gs_hat * us \
-    #                        - (Iws * Omega) * w_BN_tilde.dot(gs_hat)
-    #
-    #     return (f_r_BN_dot_contr, f_w_BN_dot_contr)
-    #
-    # def computeMassProperties(self):
-    #     m_contr = self._m_rw
-    #     m_prime_contr = 0.0
-    #     I_contr = -self._m_rw * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + self._BW.dot(self._Iw).dot(self._BW.T)
-    #     I_prime_contr = np.zeros((3,3))
-    #     com_contr = self._mr_OiB_B
-    #     com_prime_contr = np.zeros(3)
-    #
-    #     return (m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr)
-    #
-    # def computeLHS(self):
-    #
-    #     Iws = self._Iw[0,0]
-    #     Iwt = self._Iw[1,1]
-    #
-    #     gt_hat = self._BW[:,1]
-    #     gg_hat = self._BW[:,2]
-    #
-    #     gt_outer = np.outer(gt_hat, gt_hat)
-    #     gg_outer = np.outer(gg_hat, gg_hat)
-    #
-    #     mr_OiB_B_tilde = attitudeKinematics.getSkewSymmetrixMatrix(self._mr_OiB_B)
-    #
-    #     A_contr = self._m_rw * np.eye(3)
-    #     B_contr = -mr_OiB_B_tilde
-    #     C_contr = mr_OiB_B_tilde
-    #     D_contr = -self._m_rw * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + Iwt * gt_outer + Iwt * gg_outer
-    #
-    #     return (A_contr, B_contr, C_contr, D_contr)
-
-    def computeRWControlTorque(self):
-        return 0.0
 
     def computeEnergy(self):
 
@@ -1337,9 +1182,7 @@ class reactionWheel(stateEffector):
         stateMan = self._dynSystem.getStateManager()
         Omega = stateMan.getStates(self._stateRWrateName)
 
-        us = self.computeRWControlTorque()
-
-        P = Omega * us
+        P = Omega * self._us
         return P
 
 
@@ -1360,6 +1203,9 @@ class cmg(stateEffector):
 
     _BG = None                      # DCM from G to B
 
+    _ug = 0.0                       # [Nm] Gimbal torque
+    _ugMax = 1000.0                 # [Nm] Maximum gimbal torque
+
     _w_BN_B_name = ''
     _sigma_BN_name = ''
     _v_BN_N_name = ''
@@ -1379,6 +1225,9 @@ class cmg(stateEffector):
         self._BG = self._BG0
         self.setInertia(self._BG.dot(self._Ig).dot(self._BG.T))
 
+        self._ug = 0.0
+        self._ugMax = 1000.0
+
         self._w_BN_B_name = w_BN_B_name
         self._sigma_BN_name = sigma_BN_name
         self._v_BN_N_name = v_BN_N_name
@@ -1390,7 +1239,7 @@ class cmg(stateEffector):
         return
 
     @classmethod
-    def getCMG(cls, dynSystem, name, m, r_OiB_B, Igs, Igt, Igg, BG0, w_BN_B_name, sigma_BN_name, v_BN_N_name):
+    def getCMG(cls, dynSystem, name, m, r_OiB_B, Igs, Igt, Igg, BG0, w_BN_B_name, sigma_BN_name, v_BN_N_name, ug = 0.0):
         """
         Use this factory method to create a VSCMG.
         :param dynSystem: [dynamicalSystem] System which the VSCMG is attached to.
@@ -1404,17 +1253,28 @@ class cmg(stateEffector):
         :param w_BN_B_name: [string] Name that identifies W_BN_B state.
         :param sigma_BN_name: [string] Name that identifies sigma_BN state.
         :param v_BN_N_name: [string] Name that identifies v_BN_N state.
+        :param ug: Optional initial gimbal torque.
         :return: [vscmg]
         """
         cmgObj = vscmg(dynSystem, name, w_BN_B_name, sigma_BN_name, v_BN_N_name)
         cmgObj.registerStates()
-        cmgObj._m_cmg = m
+        cmgObj._mass = m
         cmgObj.setCoMOffset(r_OiB_B)
         cmgObj.setGimbalInertia(Igs, Igt, Igg)
         cmgObj._BG0 = BG0
         cmgObj._BG = BG0
+        cmgObj._ug = ug
         cmgObj.setInertia(BG0.dot(cmgObj._Ig).dot(BG0.T))
         return cmgObj
+
+    def setMaxGimbalTorque(self, ugMax):
+        """
+        Sets the maximum gimbal torque the VSCMG can apply.
+        :param ugMax: [double] torque in Nm.
+        :return:
+        """
+        self._ugMax = ugMax
+        return
 
     def setW_BNname(self, w_BN_B_name):
         self._w_BN_B_name = w_BN_B_name
@@ -1443,6 +1303,54 @@ class cmg(stateEffector):
         else:
             return True
 
+     #-----------------CMG interface---------------------#
+    # The following methods simulate the software
+    # interface of the CMG.
+
+    def getGammaEstimate(self):
+        """
+        Estimator that gives the value of the Gimbal angle.
+        It's currently simulated as an ideal estimator with infinite frequency
+        :return:
+        """
+        stateMan = self._dynSystem.getStateManager()
+        gamma = stateMan.getStates(self._stateGimbalAngleName)
+        return gamma
+
+    def getGammaDotEstimate(self):
+        """
+        Estimator that gives the value of the Gimbal rate.
+        It's currently simulated as an ideal estimator with infinite frequency
+        :return:
+        """
+        stateMan = self._dynSystem.getStateManager()
+        gamma_dot = stateMan.getStates(self._stateGimbalRateName)
+        return gamma_dot
+
+    def getGammaDDotEstimate(self):
+        """
+        Estimator that gives the value of the Gimbal acceleration.
+        It's currently simulated as an ideal estimator with infinite frequency
+        :return:
+        """
+        stateMan = self._dynSystem.getStateManager()
+        gamma_ddot = stateMan.getStateDerivatives(self._stateGimbalRateName)
+        return gamma_ddot
+
+    def setGimbalTorqueCommand(self, ug):
+        """
+        This is part of the command interface of the VSCMG.
+        You can set the gimbal control torque using this method.
+        :param ug: [double] Torque in Nm.
+        :return:
+        """
+        if np.abs(ug) <= self._ugMax:
+            self._ug = ug
+        else:
+            self._ug = np.sign(ug) * self._ugMax
+        return
+    #------------------------------------------------------#
+
 
     #----------------StateEffector interface---------------#
     def startSimulation(self):
@@ -1459,8 +1367,6 @@ class cmg(stateEffector):
         gamma = stateMan.getStates(self._stateGimbalAngleName)
         gamma_dot = stateMan.getStates(self._stateGimbalRateName)
 
-        ug = self.computeGimbalControlTorque()
-
         Igs = self._Ig[0,0]
         Igt = self._Ig[1,1]
         Igg = self._Ig[2,2]
@@ -1476,7 +1382,7 @@ class cmg(stateEffector):
         ws = np.inner(gs_hat, w_BN)
         wt = np.inner(gt_hat, w_BN)
 
-        gamma_ddot = ug/Igg - np.inner(gg_hat, w_BN_dot) - (Igt - Igs)/Igg * ws * wt
+        gamma_ddot = self._ug/Igg - np.inner(gg_hat, w_BN_dot) - (Igt - Igs)/Igg * ws * wt
 
         stateMan.setStateDerivatives(self._stateGimbalAngleName, gamma_dot)
         stateMan.setStateDerivatives(self._stateGimbalRateName, gamma_ddot)
@@ -1508,8 +1414,6 @@ class cmg(stateEffector):
         ws = np.inner(gs_hat, w_BN)
         wt = np.inner(gt_hat, w_BN)
 
-        ug = self.computeGimbalControlTorque()
-
         self.setInertia(self._BG.dot(self._Ig).dot(self._BG.T))
 
         w_BN_tilde = attitudeKinematics.getSkewSymmetrixMatrix(w_BN)
@@ -1523,7 +1427,7 @@ class cmg(stateEffector):
         f_w_BN_dot_contr = -w_BN_tilde.dot(self._I_B).dot(w_BN) \
                            -gs_hat * ((Igs - Igt + Igg) * wt * gamma_dot) \
                            -gt_hat * ((Igs - Igt - Igg) * ws * gamma_dot) \
-                           -gg_hat * (ug - (Igt - Igs) * ws * wt)
+                           -gg_hat * (self._ug - (Igt - Igs) * ws * wt)
 
         # LHS contributions
         A_contr = self._mass * np.eye(3)
@@ -1541,95 +1445,6 @@ class cmg(stateEffector):
 
         return (A_contr, B_contr, C_contr, D_contr, f_r_BN_dot_contr, f_w_BN_dot_contr, m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr)
 
-
-
-    # def computeRHS(self):
-    #
-    #     stateMan = self._dynSystem.getStateManager()
-    #
-    #     w_BN = stateMan.getStates(self._w_BN_B_name)
-    #     gamma = stateMan.getStates(self._stateGimbalAngleName)
-    #     gamma_dot = stateMan.getStates(self._stateGimbalRateName)
-    #
-    #     Igs = self._Ig[0,0]
-    #     Igt = self._Ig[1,1]
-    #     Igg = self._Ig[2,2]
-    #
-    #     GG0 = coordinateTransformations.ROT3(gamma)
-    #
-    #     BG = self._BG0.dot(GG0.T)
-    #
-    #     gs_hat = BG[:,0]
-    #     gt_hat = BG[:,1]
-    #     gg_hat = BG[:,2]
-    #
-    #     ws = np.inner(gs_hat, w_BN)
-    #     wt = np.inner(gt_hat, w_BN)
-    #     wg = np.inner(gg_hat, w_BN)
-    #
-    #     ug = self.computeGimbalControlTorque()
-    #
-    #     w_BN_tilde = attitudeKinematics.getSkewSymmetrixMatrix(w_BN)
-    #
-    #     I_B = -self._m_cmg * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + BG.dot(self._Ig).dot(BG.T)
-    #
-    #     f_r_BN_dot_contr = -w_BN_tilde.dot(w_BN_tilde).dot(self._mr_OiB_B)
-    #     f_w_BN_dot_contr = -w_BN_tilde.dot(I_B).dot(w_BN) \
-    #                        -gs_hat * ((Igs - Igt + Igg) * wt * gamma_dot) \
-    #                        -gt_hat * ((Igs - Igt - Igg) * ws * gamma_dot) \
-    #                        -gg_hat * (ug - (Igt - Igs) * ws * wt)
-    #
-    #     return (f_r_BN_dot_contr, f_w_BN_dot_contr)
-    #
-    # def computeMassProperties(self):
-    #
-    #     stateMan = self._dynSystem.getStateManager()
-    #
-    #     gamma = stateMan.getStates(self._stateGimbalAngleName)
-    #
-    #     GG0 = coordinateTransformations.ROT3(gamma)
-    #
-    #     BG = self._BG0.dot(GG0.T)
-    #
-    #     m_contr = self._m_cmg
-    #     m_prime_contr = 0.0
-    #     I_contr = -self._m_cmg * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + BG.dot(self._Ig).dot(BG.T)
-    #     I_prime_contr = np.zeros((3,3))
-    #     com_contr = self._mr_OiB_B
-    #     com_prime_contr = np.zeros(3)
-    #
-    #     return (m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr)
-    #
-    # def computeLHS(self):
-    #
-    #     stateMan = self._dynSystem.getStateManager()
-    #
-    #     gamma = stateMan.getStates(self._stateGimbalAngleName)
-    #
-    #     Igs = self._Ig[0,0]
-    #     Igt = self._Ig[1,1]
-    #
-    #     GG0 = coordinateTransformations.ROT3(gamma)
-    #
-    #     BG = self._BG0.dot(GG0.T)
-    #
-    #     gs_hat = BG[:,0]
-    #     gt_hat = BG[:,1]
-    #
-    #     gs_outer = np.outer(gs_hat, gs_hat)
-    #     gt_outer = np.outer(gt_hat, gt_hat)
-    #
-    #     mr_OiB_B_tilde = attitudeKinematics.getSkewSymmetrixMatrix(self._mr_OiB_B)
-    #
-    #     A_contr = self._m_cmg * np.eye(3)
-    #     B_contr = -mr_OiB_B_tilde
-    #     C_contr = mr_OiB_B_tilde
-    #     D_contr = -self._m_cmg * self._r_OiB_B_tilde.dot(self._r_OiB_B_tilde) + Igs * gs_outer + Igt * gt_outer
-    #
-    #     return (A_contr, B_contr, C_contr, D_contr)
-
-    def computeGimbalControlTorque(self):
-        return 0.0
 
     def computeEnergy(self):
 
@@ -1704,7 +1519,5 @@ class cmg(stateEffector):
 
         gamma_dot = stateMan.getStates(self._stateGimbalRateName)
 
-        ug = self.computeGimbalControlTorque()
-
-        P = ug*gamma_dot
+        P = self._ug*gamma_dot
         return P
