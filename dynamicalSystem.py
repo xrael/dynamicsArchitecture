@@ -147,7 +147,7 @@ class spacecraft(dynamicalSystem):
 
         return I_B
 
-    def addVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, nominal_speed_rpm, ug = 0.0, us = 0.0):
+    def addVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, nominal_speed_rpm, us_max, ug_max, ug = 0.0, us = 0.0):
         """
         Use this method to add VSCMGs to the spacecraft.
         :param name:
@@ -160,6 +160,7 @@ class spacecraft(dynamicalSystem):
         :param Iwt:
         :param BG0:
         :param nominal_speed_rpm:
+        :param us_max:
         :param ug: Optional initial gimbal torque.
         :param us: Optional initial wheel torque.
         :return:
@@ -168,11 +169,13 @@ class spacecraft(dynamicalSystem):
         sigma_BN_name = self._hub.getStateAttitudeName()
         v_BN_N_name = self._hub.getStateVelocityName()
         vscmg = stateEffector.vscmg.getVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, w_BN_name, sigma_BN_name,v_BN_N_name, nominal_speed_rpm, ug, us)
+        vscmg.setMaxGimbalTorque(ug_max)
+        vscmg.setMaxWheelTorque(us_max)
         self.addStateEffector(vscmg) # Now I'm adding stateEffectors to both: hub and sc. This might change because is not clear
         self._hub.addStateEffector(vscmg)
         return vscmg
 
-    def addRW(self, name, mass, r_OiB, Iws, Iwt, BW):
+    def addRW(self, name, mass, r_OiB, Iws, Iwt, BW, nominal_speed_rpm, us_max, us = 0.0):
         """
         Use this method to add reaction wheels to the spacecraft.
         :param name:
@@ -181,17 +184,21 @@ class spacecraft(dynamicalSystem):
         :param Iws:
         :param Iwt:
         :param BW:
+        :param nominal_speed_rpm: Nominal speed of the wheel in rpm.
+        :param us_max:
+        :param us: Optional initial wheel torque.
         :return:
         """
         w_BN_name = self._hub.getStateAngularVelocityName()
         sigma_BN_name = self._hub.getStateAttitudeName()
         v_BN_N_name = self._hub.getStateVelocityName()
-        rw = stateEffector.reactionWheel.getRW(self, name, mass, r_OiB, Iws, Iwt, BW, w_BN_name, sigma_BN_name,v_BN_N_name)
+        rw = stateEffector.reactionWheel.getRW(self, name, mass, r_OiB, Iws, Iwt, BW, w_BN_name, sigma_BN_name,v_BN_N_name, nominal_speed_rpm, us)
+        rw.setMaxWheelTorque(us_max)
         self.addStateEffector(rw) # Now I'm adding stateEffectors to both: hub and sc. This might change because is not clear
         self._hub.addStateEffector(rw)
         return rw
 
-    def addCMG(self, name, mass, r_OiB, Igs, Igt, Igg, BG0):
+    def addCMG(self, name, mass, r_OiB, Igs, Igt, Igg, BG0, ug_max, ug = 0.0):
         """
         Use this method to add CMGs to the spacecraft.
         :param name:
@@ -207,6 +214,7 @@ class spacecraft(dynamicalSystem):
         sigma_BN_name = self._hub.getStateAttitudeName()
         v_BN_N_name = self._hub.getStateVelocityName()
         cmg = stateEffector.cmg.getCMG(self, name, mass, r_OiB, Igs, Igt, Igg, BG0, w_BN_name, sigma_BN_name,v_BN_N_name)
+        cmg.setMaxGimbalTorque(ug_max)
         self.addStateEffector(cmg) # Now I'm adding stateEffectors to both: hub and sc. This might change because is not clear
         self._hub.addStateEffector(cmg)
         return cmg
