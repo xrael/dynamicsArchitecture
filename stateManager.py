@@ -10,11 +10,13 @@ class stateManager:
     """
 
     _stateDic = None
+    _nonIntegrableStateDic = None
     _all_states = None
     _all_state_derivatives = None
 
     def __init__(self):
         self._stateDic = {}
+        self._nonIntegrableStateDic = {}
         self._all_states = []
         self._all_state_derivatives = []
         return
@@ -25,7 +27,7 @@ class stateManager:
         :param st:
         :return:
         """
-        if name not in self._stateDic:
+        if name not in self._stateDic and name not in self._nonIntegrableStateDic:
             self._stateDic[name] = stateObj(name, 0, multiplicity, state_limit_func)
             return True
         else:
@@ -43,6 +45,33 @@ class stateManager:
         else:
             return False
 
+    def registerNonIntegrableState(self, name, multiplicity, state_limit_func = identity):
+        """
+        Register a non-integrable state (like orbital elements or some other variable that has to be saved but not integrated)
+        :param name:
+        :param multiplicity:
+        :param state_limit_func:
+        :return:
+        """
+        if name not in self._stateDic and name not in self._nonIntegrableStateDic:
+            self._nonIntegrableStateDic[name] = stateObj(name, 0, multiplicity, state_limit_func)
+            return True
+        else:
+            return False
+
+    def unregisterNonIntegrableState(self, name):
+        """
+        It's supposed to be used to unregister a non-integrable state, but the feature is not implemented as of yet.
+        :param name:
+        :return:
+        """
+        if name in self._stateDic and name not in self._nonIntegrableStateDic:
+            del self._nonIntegrableStateDic[name]
+            return True
+        else:
+            return False
+
+
     def getStates(self, name):
         """
         Retrieves a stateObj holding the state with the given name.
@@ -56,7 +85,7 @@ class stateManager:
 
     def getStateDerivatives(self, name):
         """
-        Retrieves a stateObj holding the state with the given name.
+        Retrieves the state with the given name.
         :param name:
         :return:
         """
@@ -91,6 +120,29 @@ class stateManager:
         else:
             return False
 
+    def getNonIntegrableStates(self, name):
+        """
+        Retrieves the non-integrable state with the given name.
+        :param name:
+        :return:
+        """
+        if name in self._nonIntegrableStateDic:
+            return self._nonIntegrableStateDic[name].getState()
+        else:
+            return None
+
+    def setNonIntegrableStates(self, name, array):
+        """
+        Set the state value.
+        :param name:
+        :param array:
+        :return:
+        """
+        if name in self._nonIntegrableStateDic:
+            self._nonIntegrableStateDic[name].setState(array)
+            return True
+        else:
+            return False
 
     def getStateVector(self):
         """
@@ -170,6 +222,15 @@ class stateManager:
             self._all_states[key] = state_history
             self._all_state_derivatives[key] = state_derivative_history
 
+        for key,value in self._nonIntegrableStateDic.items():
+            mult = value.getMultiplicity()
+            if mult == 1:
+                state_history = np.zeros(number_of_elements)
+            else:
+                state_history = np.zeros((number_of_elements, value.getMultiplicity()))
+
+            self._all_states[key] = state_history
+
         return
 
     def getStateHistory(self):
@@ -194,5 +255,13 @@ class stateManager:
             else:
                 state_history[element, :] = value.getState()
                 state_derivative_history[element,:] = value.getStateDerivatives()
+
+        for key, value in self._nonIntegrableStateDic.items():
+            state_history = self._all_states[key]
+
+            if value.getMultiplicity() == 1:
+                state_history[element] = value.getState()
+            else:
+                state_history[element, :] = value.getState()
 
         return

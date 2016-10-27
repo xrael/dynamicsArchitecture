@@ -18,12 +18,14 @@ class dynamicalSystem:
     _stateManager = None
     _stateEffectors = None
     # _dynEffectors = None
+    _gravity = None
 
     def __init__(self):
         self._integrator = None
         self._stateManager = stateManager()
         self._stateEffectors = list()
         # self._dynEffectors = list()
+        self._gravity = None
         return
 
     def setIntegrator(self, integrator):
@@ -46,6 +48,15 @@ class dynamicalSystem:
     #     dynEffector.setStateManager(self._stateManager)
     #     return
 
+    def addGravity(self, gravityObj):
+        """
+        Adds a gravity object.
+        :param gravityObj:
+        :return:
+        """
+        self._gravity = gravityObj
+        return
+
     def getState(self, name):
         return self._stateManager.getStates(name)
 
@@ -58,7 +69,17 @@ class dynamicalSystem:
         :return:
         """
         for effector in self._stateEffectors:
+            effector.addGravity(self._gravity)  # Gravity is added to all effectors
             effector.startSimulation()
+        return
+
+    def computeNonIntegrableStates(self):
+        """
+        Computes the non-integrable states of every state effector.
+        :return:
+        """
+        for effector in self._stateEffectors:
+            effector.computeNonIntegrableStates()
         return
 
     @abstractmethod
@@ -124,6 +145,16 @@ class spacecraft(dynamicalSystem):
 
         return sc
 
+    def useOrbitalElements(self, useOrbitalElements, orbElObj):
+        """
+        Add the computation of orbital elements
+        :param useOrbitalElements: [bool] True or False if you want to use orbital elements.
+        :param orbElemObj: [orbitalElements] Object to compute the orbital elements.
+        :return:
+        """
+        self._hub.useOrbitalElements(useOrbitalElements, orbElObj)
+        return
+
     def setHubMass(self, mass):
         self._hub.setMass(mass)
         return
@@ -146,6 +177,10 @@ class spacecraft(dynamicalSystem):
             I_B += effector.getInertiaRelativeToReferenceB()
 
         return I_B
+
+    def addDynEffectorToTheHub(self, dynEff):
+        self._hub.addDynEffector(dynEff)
+        return
 
     def addVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, nominal_speed_rpm, us_max, ug_max, ug = 0.0, us = 0.0):
         """
@@ -171,7 +206,7 @@ class spacecraft(dynamicalSystem):
         vscmg = stateEffector.vscmg.getVSCMG(self, name, mass, r_OiB, Igs, Igt, Igg, Iws, Iwt, BG0, w_BN_name, sigma_BN_name,v_BN_N_name, nominal_speed_rpm, ug, us)
         vscmg.setMaxGimbalTorque(ug_max)
         vscmg.setMaxWheelTorque(us_max)
-        self.addStateEffector(vscmg) # Now I'm adding stateEffectors to both: hub and sc. This might change because is not clear
+        self.addStateEffector(vscmg) # Now I'm adding stateEffectors to both: hub and sc. This might change because it's not clear
         self._hub.addStateEffector(vscmg)
         return vscmg
 
@@ -215,7 +250,7 @@ class spacecraft(dynamicalSystem):
         v_BN_N_name = self._hub.getStateVelocityName()
         cmg = stateEffector.cmg.getCMG(self, name, mass, r_OiB, Igs, Igt, Igg, BG0, w_BN_name, sigma_BN_name,v_BN_N_name)
         cmg.setMaxGimbalTorque(ug_max)
-        self.addStateEffector(cmg) # Now I'm adding stateEffectors to both: hub and sc. This might change because is not clear
+        self.addStateEffector(cmg) # Now I'm adding stateEffectors to both: hub and sc. This might change because it's not clear
         self._hub.addStateEffector(cmg)
         return cmg
 
@@ -226,15 +261,22 @@ class spacecraft(dynamicalSystem):
         :param t:
         :return:
         """
+        if self._gravity is not None:
+            self._gravity.computeGravity()
+
         self._hub.computeStateDerivatives(t)
 
         stateEffectors = self._hub.getStateEffectors()
         for effector in stateEffectors:
             effector.computeStateDerivatives(t)
 
-        return
+        return self._stateManager.getStateDerivativesVector()
 
     def computeEnergy(self):
+        """
+        Computes total mechanical energy.
+        :return:
+        """
         E = self._hub.computeEnergy()
         stateEffectors = self._hub.getStateEffectors()
         for effector in stateEffectors:
@@ -243,6 +285,10 @@ class spacecraft(dynamicalSystem):
         return E
 
     def computeMechanicalPower(self):
+        """
+        Computes rotational mechanical power.
+        :return:
+        """
         P = self._hub.computeMechanicalPower()
         stateEffectors = self._hub.getStateEffectors()
         for effector in stateEffectors:
@@ -251,6 +297,11 @@ class spacecraft(dynamicalSystem):
 
 
     def computeAngularMomentum(self):
+        """
+        Computes the total angular momentum of the spacecraft relative to reference point B in inertial frame.
+        Beware that momentum relative to the center of mass may be conserved while this angular momentum is not.
+        :return:
+        """
         H = self._hub.computeAngularMomentum()
         stateEffectors = self._hub.getStateEffectors()
         for effector in stateEffectors:

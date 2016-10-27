@@ -56,12 +56,16 @@ class simulatorManager:
         :param dynObj_str: [string] Type of dynamical object to be used.
         :param integrator_str:  [string] Type of integrator to be used.
         :param sc_name:
+        :param useOrbitalElements: [bool] Set to true if orbital elements are to be computed.
+        :param orbElemObj: [orbitalElements] Object to compute orbital elements (if used).
         :return:
         """
         simManager = simulatorManager()
 
-        if integrator_str == "rk4":
+        if integrator_str == 'rk4':
             simManager._integrator = integrator.rk4Integrator()
+        elif integrator_str == 'odeint':
+            simManager._integrator = integrator.odeIntIntegrator()
         else: # Unrecognized integrator
             return None
 
@@ -107,6 +111,9 @@ class simulatorManager:
             self._tf = (num - 1) * self._dt + self._t0 # includes the last value
             self._timeVector = np.linspace(self._t0, self._tf, num)
             return True
+
+    def getNmbrOfPoints(self):
+        return self._timeVector.size
 
     def setInitialConditions(self, stateName, value):
         """
@@ -175,6 +182,9 @@ class simulatorManager:
             if self._controlFlag:
                 self._flightSoftware.runTask(t)
                 self._flightSoftware.saveControlForces(i)
+
+            # Computes the non-integrable states (if any). e.g. orbital elements.
+            self._dynObj.computeNonIntegrableStates()
 
             stateManager.saveState(i)
 

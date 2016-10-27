@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 import attitudeKinematics
 import coordinateTransformations
 import numpy as np
+import orbitalElements
 from stateObj import stateObj
 
 
@@ -21,6 +22,7 @@ class stateEffector:
 
     _stateEffectors = None
     _dynEffectors = None
+    _gravity = None
     _stateEffectorParent = None
 
     _stateNames = ()
@@ -37,6 +39,7 @@ class stateEffector:
         self._effectorName = name
         self._stateEffectors = list()
         self._dynEffectors = list()
+        self._gravity = None
         self._stateEffectorParent = stateEffectorParent
         self._mass = 1.0
         self._I_CoM = np.eye(3)
@@ -67,6 +70,15 @@ class stateEffector:
         :return:
         """
         self._dynEffectors.append(dynEffector)
+        return
+
+    def addGravity(self, gravity):
+        """
+        Adds a gravity object to the effector.
+        :param gravity: [gravity object]]
+        :return:
+        """
+        self._gravity = gravity
         return
 
     def getStateEffectorParent(self):
@@ -131,6 +143,13 @@ class stateEffector:
 
     def getCoM(self):
         return self._CoM
+
+    def computeNonIntegrableStates(self):
+        """
+        Override if there's non-integrable states.
+        :return:
+        """
+        return
 
     #----------------------------------Abstract Methods-------------------------------#
     # Real state effectors should implement the following methods.
@@ -202,13 +221,6 @@ class spacecraftHub(stateEffector):
     Implements a rigid body hub effector.
     """
 
-    #_I_Bc = None            # [kg-m^2] Inertia of the hub relative to the hub's center of mass Bc.
-    #_I_B = None             # [kg-m^2] Inertia of the hub relative to the reference point B.
-    #_r_BcB_B = None         # [m] Position of the hub's CoM relative to the reference B.
-    #_r_BcB_B_tilde = None   # Tilde matrix
-
-    #_mr_BcB_B = None        # [kg m] Momentum of order 1 (_m_hub * _r_BcB_B)
-
     # RHS, LHS and mass property contributions
     _r_ddot_contr = None
     _w_dot_contr = None
@@ -227,6 +239,9 @@ class spacecraftHub(stateEffector):
     _stateVelocityName = ''
     _stateAttitudeName = ''
     _stateAngularVelocityName = ''
+
+    _useOrbitalElements = False
+    _orbElObj = None
 
     def __init__(self, dynSystem, name):
         super(spacecraftHub, self).__init__(dynSystem, name)
@@ -257,6 +272,9 @@ class spacecraftHub(stateEffector):
         self._C_contr = np.zeros((3,3))
         self._D_contr = np.zeros((3,3))
 
+        self._useOrbitalElements = False
+        self._orbElObj = None
+
         return
 
     @classmethod
@@ -265,13 +283,108 @@ class spacecraftHub(stateEffector):
         Use this factory method to create a hub.
         :param dynSystem: [dynamicalSystem] Dynamical system which the hub is attached to.
         :param name: [string] Name for the hub.
+        :param useOrbitalElements: [bool] Use or not orbital elements.
+        :param orbElemObj: [orbitalElements] Object used to compute orbital elements.
         :return:
         """
         hub = spacecraftHub(dynSystem, name)
         hub.registerStates()
-
         return hub
 
+    def useOrbitalElements(self, useOrbitalElements, orbElemObj):
+        """
+        Add the computation of orbital elements
+        :param useOrbitalElements: [bool] True or False if you want to use orbital elements.
+        :param orbElemObj: [orbitalElements] Object to compute the orbital elements.
+        :return:
+        """
+        self._useOrbitalElements = useOrbitalElements
+
+        if useOrbitalElements: # If orbital elements are to be computed
+            self.registerOrbitalElements()
+            self._orbElObj = orbElemObj
+        return
+
+    def registerOrbitalElements(self):
+        """
+        If orbital elements are used, they are registered as non-integrable states.
+        This might change in the future to allow an arbitrary set of orbital elements.
+        THIS HAS TO CHANGE -> BAD CODE!!!!!!!
+        :return:
+        """
+        stateMan = self._dynSystem.getStateManager()
+
+        if not stateMan.registerNonIntegrableState(self._effectorName + '_' + 'semimajor_axis', 1):
+            return False
+        elif not stateMan.registerNonIntegrableState(self._effectorName + '_' + 'eccentricity', 1):
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_'+ 'semimajor_axis')
+            return False
+        elif not stateMan.registerNonIntegrableState(self._effectorName + '_'+ 'inclination', 1):
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'semimajor_axis')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'eccentricity')
+            return False
+        elif not stateMan.registerNonIntegrableState(self._effectorName + '_'+ 'long_asc_node', 1):
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'semimajor_axis')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'eccentricity')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'inclination')
+            return False
+        elif not stateMan.registerNonIntegrableState(self._effectorName + '_' + 'arg_periapsis', 1):
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'semimajor_axis')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'eccentricity')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'inclination')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'long_asc_node')
+            return False
+        elif not stateMan.registerNonIntegrableState(self._effectorName + '_' + 'true_anomaly', 1):
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'semimajor_axis')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'eccentricity')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'inclination')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'long_asc_node')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'arg_periapsis')
+            return False
+        elif not stateMan.registerNonIntegrableState(self._effectorName + '_' + 'eccentric_anomaly', 1):
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'semimajor_axis')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'eccentricity')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'inclination')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'long_asc_node')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'arg_periapsis')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'true_anomaly')
+            return False
+        elif not stateMan.registerNonIntegrableState(self._effectorName + '_' + 'longitude_of_periapse', 1):
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'semimajor_axis')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'eccentricity')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'inclination')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'long_asc_node')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'arg_periapsis')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'true_anomaly')
+            stateMan.unregisterNonIntegrableState(self._effectorName + '_' + 'eccentric_anomaly')
+            return False
+        else:
+            return True
+
+    def computeNonIntegrableStates(self):
+        """
+        Computes the non-integrable states (orbital elements in this case).
+        :return:
+        """
+        if self._useOrbitalElements:
+            stateMan = self._dynSystem.getStateManager()
+
+            r_BN_N = stateMan.getStates(self._statePositionName)
+            v_BN_N = stateMan.getStates(self._stateVelocityName)
+
+            self._orbElObj.setOrbitalElementsFromPosVel(r_BN_N, v_BN_N) # This is a pretty general interface
+
+            # This is not general for every single orbital element set.
+            stateMan.setNonIntegrableStates(self._effectorName + '_' + 'semimajor_axis', self._orbElObj.a)
+            stateMan.setNonIntegrableStates(self._effectorName + '_' + 'eccentricity', self._orbElObj.e)
+            stateMan.setNonIntegrableStates(self._effectorName + '_' + 'inclination', self._orbElObj.i)
+            stateMan.setNonIntegrableStates(self._effectorName + '_' + 'long_asc_node', self._orbElObj.raan)
+            stateMan.setNonIntegrableStates(self._effectorName + '_' + 'arg_periapsis', self._orbElObj.w)
+            stateMan.setNonIntegrableStates(self._effectorName + '_' + 'true_anomaly', self._orbElObj.nu)
+            stateMan.setNonIntegrableStates(self._effectorName + '_' + 'longitude_of_periapse', self._orbElObj.w_true)
+            stateMan.setNonIntegrableStates(self._effectorName + '_' + 'eccentric_anomaly', self._orbElObj.E)
+
+        return
 
     #------------------State Name getters------------------#
     def getStatePositionName(self):
@@ -337,11 +450,12 @@ class spacecraftHub(stateEffector):
         C = np.zeros((3,3))
         D = np.zeros((3,3))
 
+        # stateEffector contributions
         for effector in self._stateEffectors:
             (A_contr, B_contr, C_contr, D_contr,
             f_r_BN_dot_contr, f_w_dot_contr,
             m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr) = effector.computeContributions()
-            #(m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr) = effector.computeMassProperties()
+
             m += m_contr
             m_prime += m_prime_contr
             I += I_contr
@@ -349,21 +463,19 @@ class spacecraftHub(stateEffector):
             com += com_contr
             com_prime += com_prime_contr
 
-            #(f_r_BN_dot_contr, f_w_dot_contr) = effector.computeRHS()
             f_r_BN_dot += f_r_BN_dot_contr
             f_w_dot += f_w_dot_contr
 
-            #(A_contr, B_contr, C_contr, D_contr) = effector.computeLHS()
             A += A_contr
             B += B_contr
             C += C_contr
             D += D_contr
 
+        # Hub contributions
         (A_contr, B_contr, C_contr, D_contr,
          f_r_BN_dot_contr, f_w_dot_contr,
          m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr) = self.computeContributions()
 
-        #(m_contr, m_prime_contr, I_contr, I_prime_contr, com_contr, com_prime_contr) = self.computeMassProperties()
         m += m_contr
         m_prime += m_prime_contr
         I += I_contr
@@ -371,17 +483,29 @@ class spacecraftHub(stateEffector):
         com += com_contr
         com_prime += com_prime_contr
 
-        #(f_r_BN_dot_contr, f_w_dot_contr) = self.computeRHS()
         f_r_BN_dot += f_r_BN_dot_contr
         f_w_dot += f_w_dot_contr
 
-        #(A_contr, B_contr, C_contr, D_contr) = self.computeLHS()
         A += A_contr
         B += B_contr
         C += C_contr
         D += D_contr
 
         BN = attitudeKinematics.mrp2dcm(sigma_BN)
+
+        # dynEffector contributions
+        for effector in self._dynEffectors:
+            # Remember that contributions have to be written in the B frame!
+            (f_r_BN_dot_contr, f_w_dot_contr) = effector.computeRHS(m, I, com, BN)
+            f_r_BN_dot += f_r_BN_dot_contr
+            f_w_dot += f_w_dot_contr
+
+        if self._gravity is not None:
+            g = self._gravity.getGravityField()
+            g_B = BN.dot(g)
+            Fg = m * g_B
+            f_r_BN_dot += Fg
+            f_w_dot += np.cross(com, Fg)
 
         A_inv = np.linalg.inv(A)
 

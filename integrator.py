@@ -1,5 +1,7 @@
 
 from abc import ABCMeta, abstractmethod
+from scipy.integrate import odeint
+import numpy as np
 import dynamicalSystem
 import stateManager
 
@@ -23,8 +25,12 @@ class integrator:
     @abstractmethod
     def integrate(self, t, dt): pass
 
+#----------------------------------------------------------------------------------------------------------------------#
 
 class rk4Integrator(integrator):
+    """
+    Fixed-step rk4 integrator.
+    """
 
     def __init__(self):
         super(rk4Integrator, self).__init__()
@@ -63,4 +69,60 @@ class rk4Integrator(integrator):
 
         stateMan.setStateVector(x_next)
 
+        return
+
+#----------------------------------------------------------------------------------------------------------------------#
+
+class odeIntIntegrator(integrator):
+    """
+    Encapsulates odeint.
+    THIS IS A VERY INEFFICIENT METHOD since it'se setting odeint at every time step.
+    """
+
+    _func = None
+    _atol = 0
+    _rtol = 0
+
+    def __init__(self, atol = 1e-12, rtol = 1e-12):
+        """
+
+        :param atol: [double] Optional absolute tolerance.
+        :param rtol: [double] Optional relative tolerance.
+        :return:
+        """
+        super(odeIntIntegrator, self).__init__()
+
+        self._func = None
+        self._atol = atol
+        self._rtol = rtol
+
+        return
+
+    def setDynamicalSystem(self, dynSystem):
+        super(odeIntIntegrator, self).setDynamicalSystem(dynSystem)
+
+        self._func = lambda state, t :   self.func(state, t)
+        return
+
+    def func(self, state, t):
+        """
+        Receives state and current time and returns the derivative of the state.
+        :param state:
+        :param t:
+        :return:
+        """
+        self._dynSystem.getStateManager().setStateVector(state)
+        return self._dynSystem.equationsOfMotion(t)
+
+
+    def integrate(self, t, dt):
+        stateMan = self._dynSystem.getStateManager()
+
+        x = stateMan.getStateVector()
+
+        time_vec = np.array([t, t+dt])
+
+        x_next = odeint(self._func, x, time_vec, rtol=self._rtol, atol=self._atol)
+
+        stateMan.setStateVector(x_next[-1,:])
         return

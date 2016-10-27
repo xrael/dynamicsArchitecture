@@ -1,1 +1,9 @@
 Dynamics simulator architecture
+
+Simulates a very general simulator architecture with dynamics, external forces and torques, flight software, controls,
+estimators, and objects for computing reference trajectories.
+
+TO-DO:
+
+1) Think again about MRP switching. Currently, it's being done in the intermediate steps of RK-4 integration.
+What happens if there's switching in some of the integration steps? What happens to sigma_dot?
