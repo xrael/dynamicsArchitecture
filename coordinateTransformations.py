@@ -194,11 +194,11 @@ def eci2RightAscensionDeclinationRange(r_eci):
 def HillFrameRotationMatrix(raan, inc, argLatitude, mean_motion):
     """
     For circular orbits.
-    :param raan:
-    :param inc:
-    :param argLatitude:
+    :param raan: [double] Longitude of ascending node (or RAAN, for orbits around the Earth).
+    :param inc: [double] Inclination.
+    :param argLatitude: [double] Argument of latitude (angle between the node and the position vector).
     :param mean_motion
-    :return:
+    :return: Hill-frame (x: points to the satellite (radial), y: in-track, z: cross-track).
     """
     HN = ROT3(argLatitude).dot(ROT1(inc)).dot(ROT3(raan))
     HN_dot = ROT3_DOT(argLatitude, mean_motion).dot(ROT1(inc)).dot(ROT3(raan))
