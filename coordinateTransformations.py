@@ -206,6 +206,32 @@ def HillFrameRotationMatrix(raan, inc, argLatitude, mean_motion):
     return (HN, HN_dot, HN_ddot)
 
 
+def computeUnitVectorDerivatives(a, a_dot, a_ddot = None):
+        """
+        Computes the time derivatives of a unit vector given by a/a_norm.
+        :param a:
+        :param a_dot:
+        :param a_ddot:
+        :return:
+        """
+        a_inner = np.inner(a,a)
+        a_norm = np.sqrt(a_inner)
+        a_outer = np.outer(a,a)
+
+        a_dot_inner = np.inner(a_dot, a_dot)
+        a_dot_outer = np.outer(a_dot, a_dot)
+
+        r = a/a_norm
+        r_dot = a_dot/a_norm - a_outer.dot(a_dot)/a_norm**3
+
+        if a_ddot is not None:
+            r_ddot = a_ddot/a_norm - (2*a_dot_outer.dot(a) + a_dot_inner * a + a_outer.dot(a_ddot))/a_norm**3 + (a_outer.dot(a_dot_outer).dot(a))/a_norm**5
+        else:
+            r_ddot = None
+
+        return (r, r_dot, r_ddot)
+
+
 def ROT1(alpha):
     """
     Basic Rotation through 1st axis by an Euler Angle alpha

@@ -71,6 +71,8 @@ class simulatorManager:
 
         if dynObj_str == 'spacecraft_backSub':
             simManager._dynObj = dynamicalSystem.spacecraft.getSpacecraft(simManager._integrator, sc_name)
+        elif dynObj_str == 'three_body':
+            simManager._dynObj = dynamicalSystem.threeBodyProblemSpacecraft.getthreeBodyProblemSpacecraft(simManager._integrator, sc_name)
         else: # Unrecognized dynamical object
             return None
 
