@@ -560,7 +560,7 @@ class threeBodyProblemSpacecraft(dynamicalSystem):
                 r_rel = r - R1
                 r_rel_dot = r_dot - R1_dot
             else:
-                r_rel = r - R 2
+                r_rel = r - R2
                 r_rel_dot = r_dot - R2_dot
             self._orbElObj.setOrbitalElementsFromPosVel(r_rel, r_rel_dot) # This is a pretty general interface
 
