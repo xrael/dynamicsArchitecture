@@ -200,9 +200,14 @@ def HillFrameRotationMatrix(raan, inc, argLatitude, mean_motion):
     :param mean_motion
     :return: Hill-frame (x: points to the satellite (radial), y: in-track, z: cross-track).
     """
-    HN = ROT3(argLatitude).dot(ROT1(inc)).dot(ROT3(raan))
-    HN_dot = ROT3_DOT(argLatitude, mean_motion).dot(ROT1(inc)).dot(ROT3(raan))
-    HN_ddot = ROT3_DDOT(argLatitude, mean_motion, 0.0).dot(ROT1(inc)).dot(ROT3(raan))
+    if np.abs(inc) < np.deg2rad(0.001): # Zero inclination (equatorial circular orbit)
+        HN = ROT3(argLatitude)
+        HN_dot = ROT3_DOT(argLatitude, mean_motion)
+        HN_ddot = ROT3_DDOT(argLatitude, mean_motion, 0.0)
+    else:
+        HN = ROT3(argLatitude).dot(ROT1(inc)).dot(ROT3(raan))
+        HN_dot = ROT3_DOT(argLatitude, mean_motion).dot(ROT1(inc)).dot(ROT3(raan))
+        HN_ddot = ROT3_DDOT(argLatitude, mean_motion, 0.0).dot(ROT1(inc)).dot(ROT3(raan))
     return (HN, HN_dot, HN_ddot)
 
 

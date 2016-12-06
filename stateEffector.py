@@ -1052,6 +1052,36 @@ class reactionWheel(stateEffector):
 
     _stateRWrateName = ''
 
+    @classmethod
+    def computeMinMaxTorqueCapability(cls, Gs, us_max):
+        """
+        Computes the minimum torque capability of a particular wheel configuration according to
+        Landlis Markley paper on "Maximum torque and momentum envelopes for reaction-wheel arrays".
+        :param Gs: [2-dimensional numpy array] Matrix with the wheels spin direction unit vector as columns.
+        :param us_max: [double] Maximum torque (the same for all the wheels).
+        :return:
+        """
+        nmbrRW = Gs.shape[1]
+
+        L_min = 0.0
+
+        for i in range(0, nmbrRW):
+            for j in range(0, nmbrRW):
+                if j != i:
+                    nij = np.cross(Gs[:, i], Gs[:,j])
+                    nij = nij/np.linalg.norm(nij)
+                    dij = 0
+                    for k in range(0, nmbrRW):
+                        if k != i and k != j:
+                            dij += np.abs(np.inner(Gs[:, k], nij))
+
+                    L_min_ij = us_max * dij # Max torque on the facet ij
+                    if L_min == 0.0:
+                        L_min = L_min_ij
+                    elif L_min_ij < L_min:  # Minimum torque capacity
+                        L_min = L_min_ij
+        return L_min
+
     def __init__(self, dynSystem, name, w_BN_B_name, sigma_BN_name, v_BN_N_name):
         super(reactionWheel, self).__init__(dynSystem, name)
         self._Iw = np.eye(3)

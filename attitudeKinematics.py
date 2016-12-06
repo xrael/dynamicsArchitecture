@@ -549,6 +549,43 @@ def computeErrorMRP(mrp_BN, mrp_RN):
     mrp_BR = switchMRPrepresentation(mrp_BR)
     return mrp_BR
 
+
+def computeMRPsensitivity(mrp_BN, mrp_RN):
+    """
+    The name is unclear, but the function computes the matrix \partial mrp_BN/\partial mrp_BR.
+    :param mrp_BN:
+    :param mrp_RN:
+    :return:
+    """
+    mrp_RN2 = np.inner(mrp_RN, mrp_RN)
+    mrp_BN2 = np.inner(mrp_BN, mrp_BN)
+
+    den = (1 + mrp_RN2*mrp_BN2 + 2*np.dot(mrp_RN, mrp_BN))
+
+    if den < 1e-2: # Difference of almost 360 deg
+        mrp_RN = -mrp_RN/mrp_RN2 # switch one mrp to make the difference close to 0 deg
+        mrp_RN2 = np.inner(mrp_RN, mrp_RN)
+        den = (1 + mrp_RN2*mrp_BN2 + 2*np.dot(mrp_RN, mrp_BN))
+
+    mrp_BR = ((1-mrp_RN2) * mrp_BN - (1-mrp_BN2) * mrp_RN + 2 * np.cross(mrp_BN, mrp_RN))/den
+    mrp_BR = switchMRPrepresentation(mrp_BR)
+
+    I = np.eye(3)
+
+    outer = np.outer(mrp_BN, mrp_RN)
+    mrp_BR_tilde = getSkewSymmetrixMatrix(mrp_BR)
+
+    den2 = (1 + mrp_RN2*mrp_BN2 - 2*np.dot(mrp_RN, mrp_BN))
+    if den2 < 1e-2:
+        mrp_RN = -mrp_RN/mrp_RN2 # switch one mrp to make the difference close to 0 deg
+        mrp_RN2 = np.inner(mrp_RN, mrp_RN)
+        den2 = (1 + mrp_RN2*mrp_BN2 - 2*np.dot(mrp_RN, mrp_BN))
+
+    dmrp_BN_dmrp_BR = ((1- mrp_RN2) * I - 2*(I + outer).dot(outer.T) + 2*mrp_BR_tilde + 2*outer)/den2
+
+    return dmrp_BN_dmrp_BR
+
+
 def solveKinematicEquationMRP(mrp_0, getw_callback, t0, tf, dt):
     """
 

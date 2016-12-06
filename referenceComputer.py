@@ -137,16 +137,18 @@ class nadirPointingReference(referenceComputer):
     _inc = 0.0
     _a = 0.0
     _meanAnomaly = 0.0
+    _initialArgLatitude = 0.0
     _mu = 0.0
     _r_HN_H = np.zeros(3)
 
-    def __init__(self, period, raan, inc, a, mu):
+    def __init__(self, period, raan, inc, a, mu, initialArgLatitude):
         super(nadirPointingReference, self).__init__(period)
         self._raan = raan
         self._inc = inc
         self._a = a
         self._mu = mu
         self._meanAnomaly = np.sqrt(mu/a**3)
+        self._initialArgLatitude = initialArgLatitude
         self._r_HN_H = np.array([a, 0.0, 0.0])                    # Satellite position in Hill Frame
         return
 
@@ -159,7 +161,7 @@ class nadirPointingReference(referenceComputer):
         EN = coordinateTransformations.ROT3(self._gamma*t) # ECEF to Inertial attitude
         EN_dot = coordinateTransformations.ROT3_DOT(self._gamma*t, self._gamma)
         EN_ddot = coordinateTransformations.ROT3_DDOT(self._gamma*t, self._gamma, 0.0)
-        (HN, HN_dot, HN_ddot) = coordinateTransformations.HillFrameRotationMatrix(self._raan, self._inc, self._meanAnomaly*t, self._meanAnomaly)
+        (HN, HN_dot, HN_ddot) = coordinateTransformations.HillFrameRotationMatrix(self._raan, self._inc, self._meanAnomaly*t + self._initialArgLatitude, self._meanAnomaly)
 
         (self._RN, RN_dot, RN_ddot) = self.computeReferenceFrameFromTargetPoint(HN, HN_dot, HN_ddot, EN, EN_dot, EN_ddot, self._r_HN_H, np.zeros(3), 'ECEF')
 
