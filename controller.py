@@ -836,7 +836,8 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
 
     """
 
-    _constraints = None
+    _exclusionConstraints = None
+    _inclusionConstraints = None
 
     def __init__(self, estimator, rws, referenceComp, period_outer_loop, period_inner_loop, P_omega, K_integral, K1_sigma, K3_sigma, w_max):
         """
@@ -855,7 +856,8 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
         """
         super(constrainedSteeringLawController, self).__init__(estimator, rws, referenceComp, period_outer_loop, period_inner_loop, P_omega, K_integral, K1_sigma, K3_sigma, w_max)
 
-        self._constraints = list()
+        self._exclusionConstraints = list()
+        self._inclusionConstraints = list()
 
         self._controlForceManager.registerState('V_lyapunov', 1)
         self._controlForceManager.registerState('V_dot_lyapunov', 1)
@@ -867,9 +869,17 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
         return
 
 
-    def addConstraint(self, x_N, y_B, angle, name, angle_thres_min, angle_thres_max):
+    def addExclusionConstraint(self, x_N, y_B, angle, name, angle_thres_min, angle_thres_max):
         cons = constraint(x_N, y_B, angle, name, angle_thres_min, angle_thres_max)
-        self._constraints.append(cons)
+        self._exclusionConstraints.append(cons)
+        self._controlForceManager.registerState(cons.getName() + '_y_N', 3)
+        self._controlForceManager.registerState(cons.getName() + '_theta', 1)
+        self._controlForceManager.registerState(cons.getName() + '_constraint', 1)
+        return
+
+    def addInclusionConstraint(self, x_N, y_B, angle, name):
+        cons = constraint(x_N, y_B, angle, name)
+        self._inclusionConstraints.append(cons)
         self._controlForceManager.registerState(cons.getName() + '_y_N', 3)
         self._controlForceManager.registerState(cons.getName() + '_theta', 1)
         self._controlForceManager.registerState(cons.getName() + '_constraint', 1)
@@ -891,22 +901,17 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
 
         w_BR_est = w_BN_est - w_RN_B_est
 
-        #B_BR = attitudeKinematics.getBmatrix(sigma_BR_est) # Matrix [B(sigma_BR)]
-        #sigma_BN_2 = np.inner(sigma_BN_est, sigma_BN_est)
         sigma_BR_2 = np.inner(sigma_BR_est, sigma_BR_est)
-
-        #dsigma_BN_dsigma_BR = attitudeKinematics.computeMRPsensitivity(sigma_BN_est, sigma_RN_est)
-
-        #gamma = constraint.getConstraintMaximumValue() * np.e
 
         v_vec = np.zeros(3)
         u_vec = np.zeros(3)
         check_vec = np.zeros(3)
         V_lyapunov = 0.0
         V_dot_lyapunov = 0.0
-        #Q = np.zeros((3,3))
-        nmbr_constr = len(self._constraints)
-        for constr in self._constraints:
+
+        ##### Exclusion constraints
+        nmbr_constr = len(self._exclusionConstraints)
+        for constr in self._exclusionConstraints:
             (change, useConstraint) = constr.computeConstraint(sigma_BN_est)
             c = constr.getConstraint()
             #grad_c = constr.getConstraintGradient()
@@ -924,7 +929,6 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
                 self._resetDerivative = True
 
             if useConstraint:
-                #Vect += -1.0/nmbr_constr * (np.log(-c/gamma) * sigma_BR_est + 0.5 * np.log(1 + sigma_BR_2) * B_BR.T.dot(dsigma_BN_dsigma_BR.T).dot(grad_c/c))
                 v_vec += -1.0/nmbr_constr * (np.log(-c/alpha) * sigma_BR_est + 2 * np.log(1 + sigma_BR_2) * c_dot_coeff/c)
                 check_vec += c_dot_coeff/c
                 u_vec += -2.0/nmbr_constr * np.log(1 + sigma_BR_2) * c_dot_coeff/c
@@ -935,19 +939,49 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
             if c >= 0:
                 print constr.getName() + ': ' + str(c)
 
-            #Vect += np.log(-c/8) * sigma_BN_est + 0.5 * np.log(1 + sigma_BN_2) * B.T.dot(grad_c/c)
-
-            # if sigma_BN_2 > 0.001:
-            #     Q += np.log(-c/gamma) * np.eye(3) + 0.5 * np.log(1+sigma_BN_2)/sigma_BN_2 * B.T.dot(np.outer(grad_c/c, sigma_BN_est))
-            # else:
-            #     Q += np.log(-c/gamma) * np.eye(3) + 0.5 * 1.0 * B.T.dot(np.outer(grad_c/c, sigma_BN_est))
-            #
             V_lyapunov += -2.0/nmbr_constr * np.log(1 + sigma_BR_2) * np.log(-c/alpha)
 
             V_dot_lyapunov += -1.0/nmbr_constr * np.log(-c/alpha) * np.inner(sigma_BR_est, w_BR_est) \
                               - 2.0/nmbr_constr * np.log(1 + sigma_BR_2) * c_dot_coeff.dot(w_BN_est)/c
         # end for
 
+        ##### Inclusion constraints
+        nmbr_constr = len(self._inclusionConstraints)
+        for constr in self._inclusionConstraints:
+            (change, useConstraint) = constr.computeConstraint(sigma_BN_est)
+            c = constr.getConstraint()
+            #grad_c = constr.getConstraintGradient()
+            c_dot_coeff = constr.getConstraintTimeDerivativeCoefficient()
+            yN = constr.getBoresight()
+            angle = constr.getAngle()
+            alpha = constr.getAlpha()
+
+            self._controlForceManager.setStates(constr.getName() + '_y_N', yN)
+            self._controlForceManager.setStates(constr.getName() + '_theta', angle)
+            self._controlForceManager.setStates(constr.getName() + '_constraint', c)
+
+            if change:
+                # if there's a change in the law, don't approximate the angular velocity derivative numerically to avoid spikes
+                self._resetDerivative = True
+
+            if useConstraint:
+                v_vec += -1.0/nmbr_constr * (np.log(c/alpha) * sigma_BR_est + 2 * np.log(1 + sigma_BR_2) * c_dot_coeff/c)
+                check_vec += c_dot_coeff/c
+                u_vec += -2.0/nmbr_constr * np.log(1 + sigma_BR_2) * c_dot_coeff/c
+            else:
+                v_vec += 1.0/nmbr_constr * sigma_BR_est
+                u_vec += np.array([0,0,0])
+
+            if c >= 0:
+                print constr.getName() + ': ' + str(c)
+
+            V_lyapunov += -2.0/nmbr_constr * np.log(1 + sigma_BR_2) * np.log(c/alpha)
+
+            V_dot_lyapunov += -1.0/nmbr_constr * np.log(c/alpha) * np.inner(sigma_BR_est, w_BR_est) \
+                              - 2.0/nmbr_constr * np.log(1 + sigma_BR_2) * c_dot_coeff.dot(w_BN_est)/c
+        # end for
+
+        # Saddle point avoidance
         if np.linalg.norm(v_vec) < 0.01 and sigma_BR_2 > 0.1**2:
             v_vec = 0.05*np.array([sigma_BR_est[2], 0, -sigma_BR_est[0]])
 
@@ -994,7 +1028,7 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
 
         self._controlForceManager.setStates('Vect', v_vec)
         self._controlForceManager.setStates('Uvect', u_vec)
-        self._controlForceManager.setStates('offset_norm', np.linalg.norm(offset))
+        self._controlForceManager.setStates('offset_norm', np.linalg.norm(offset)/np.linalg.norm(w_RN_B_est))
 
         #print 'offset', offset
 
@@ -1003,17 +1037,20 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
 #----------------------------------------------------------------------------------------------------------------------#
 
 class constraint:
+    """
+    Implements inertial conic constraints of the type angle > angle_min (exclusion) or angle < angle_max (inclusion).
+    """
 
-    _xN = None
-    _yB = None
-    _yN = None
-    _angle_min = 0.0
-    _angle = 0.0
+    _xN = None              # Center of the cone (unit vector in inertial frame)
+    _yB = None              # Boresight vector (unit vector in body frame)
+    _yN = None              # Boresight vector (unit vector in inertial frame)
+    _angle_min = 0.0        # Angle defining the border of the cone
+    _angle = 0.0            # Angle between the center of the cone and the boresight vector (real-time angle)
 
-    _angle_thres_min = 0.0
-    _angle_thres_max = 0.0
+    _angle_thres_min = 0.0  # Minimum security angle around the cone
+    _angle_thres_max = 0.0  # Maximum security angle around the cone
 
-    _c = 0.0
+    _c = 0.0                # Value of the constraint function
     #_grad_c = 0.0
     _c_dot_coeff = 0.0
 
@@ -1027,9 +1064,9 @@ class constraint:
 
     _name = ''
 
-    def __init__(self, x_N, y_B, angle_min, name, angle_thres_min, angle_thres_max):
+    def __init__(self, x_N, y_B, angle_min, name, angle_thres_min = -1, angle_thres_max = -1):
         """
-
+        Constructor.
         :param x_N: [1-dimensional numpy array] Vector pointing towards the constraint in inertial frame.
         :param y_B: [1-dimensional numpy array] Vector pointing in the boresight direction of the instrument to protect in body frame.
         :param angle_min: [double] angle of protection in rad.
@@ -1065,6 +1102,7 @@ class constraint:
     def getConstraintMaximumValue(cls):
         return 2.0
 
+    #--------------------Getters--------------------#
     def getxN(self):
         return self._xN
 
@@ -1109,12 +1147,13 @@ class constraint:
 
     def getName(self):
         return self._name
+    #-----------------------------------------------#
 
     def computeConstraint(self, sigma_BN):
         """
         Computes the constraint surface c(sigma), its gradient, the angle and the boresight vector.
         The constraint is just c(sigma) < 0
-        :param sigma_BN:
+        :param sigma_BN: [1-dimensional numpy array] Attitude (MRP) of the body frame relative to the inertial.
         :return:
         """
         #sigma_BN_2 = np.inner(sigma_BN, sigma_BN)
@@ -1136,20 +1175,24 @@ class constraint:
         self._yN = BN.T.dot(self._yB)
         self._angle = np.arccos(np.inner(self._yN, self._xN))
 
-        change = False
-        # self._useConstraint = True
-        if self._angle < self._angle_thres_min:
-            # Use the constraint control
-            if self._useConstraint == False:
-                change = True
-                self._alpha = np.abs(np.cos(self._angle_thres_max) - np.cos(self._angle_min)) * np.e
+        if self._angle_thres_min == -1 and self._angle_thres_max == -1: # not used
+            change = False
             self._useConstraint = True
-        elif self._angle > self._angle_thres_max:
-            # Do not use the constraint control
-            if self._useConstraint == True:
-                change = True
-                #self._alpha = np.abs(np.cos(self._angle_thres_min) - np.cos(self._angle_min)) * np.e
-            self._useConstraint = False
-        # else: use whatever you're using so far
+        else:
+            change = False
+            # self._useConstraint = True
+            if self._angle < self._angle_thres_min:
+                # Use the constraint control
+                if self._useConstraint == False:
+                    change = True
+                    self._alpha = np.abs(np.cos(self._angle_thres_max) - np.cos(self._angle_min)) * np.e
+                self._useConstraint = True
+            elif self._angle > self._angle_thres_max:
+                # Do not use the constraint control
+                if self._useConstraint == True:
+                    change = True
+                    #self._alpha = np.abs(np.cos(self._angle_thres_min) - np.cos(self._angle_min)) * np.e
+                self._useConstraint = False
+            # else: use whatever you're using so far
 
         return (change, self._useConstraint)
