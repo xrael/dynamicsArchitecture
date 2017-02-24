@@ -39,7 +39,7 @@ Iwt = 0.001
 us_max = 0.015                  # [Nm]
 
 # Nominal speed
-nominal_speed_wheel = 200.0    # [rpm]
+nominal_speed_wheel = 500.0    # [rpm]
 
 # CoM offset
 R_O1B_rw = np.array([0.1,0,0])        # [m] Position of the center of mass of the VSCMG relative to the reference B
@@ -144,7 +144,7 @@ K_i = 0.01 * np.eye(3)
 
 # Control loop steps
 outer_loop_step = 0.1        # 10 Hz
-innerLoop_step = 0.01        # 100 Hz
+innerLoop_step = 0.1        # 100 Hz
 
 ##### Reference computer
 reference_computer_step = dt
@@ -205,9 +205,9 @@ for k in range(0, N_sim):
 
 
     referenceComp.setPoint(mrp_RN) #np.tan(np.deg2rad(30))/4 * np.array([0,0,1]))
-    control = controller.constrainedSteeringLawController(estimator, (rw1, rw2, rw3, rw4), referenceComp, outer_loop_step, innerLoop_step, P_w, K_i, K1_sigma, K3_sigma, w_max)
-    control.addExclusionConstraint(x_1, y_B, cone_angle_1, 'Constraint_1', angle_thres_1, angle_thres_1_max)
-    control.addExclusionConstraint(x_2, y_B, cone_angle_2, 'Constraint_2', angle_thres_2, angle_thres_2_max)
+    control = controller.constrainedSteeringLawController(estimator, (rw1, rw2, rw3, rw4), referenceComp, outer_loop_step, innerLoop_step, P_w, K_i, K1_sigma, K3_sigma, w_max, 50)
+    control.addExclusionConstraint(x_1, y_B, cone_angle_1, 'Constraint_1', -1, -1)# angle_thres_1, angle_thres_1_max)
+    control.addExclusionConstraint(x_2, y_B, cone_angle_2, 'Constraint_2', -1, -1)# angle_thres_2, angle_thres_2_max)
     control.setMaxWheelTorque(us_max)
     simulator.setControls(estimator, control, referenceComp)
 
@@ -367,9 +367,9 @@ for i in range(0, l-1):
 plt.figure()
 plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(time[k,:], np.rad2deg(mrp_BN[k,:,0]))
-    plt.plot(time[k,:], np.rad2deg(mrp_BN[k,:,1]))
-    plt.plot(time[k,:], np.rad2deg(mrp_BN[k,:,2]))
+    plt.plot(time[k,::10], np.rad2deg(mrp_BN[k,::10,0]))
+    plt.plot(time[k,::10], np.rad2deg(mrp_BN[k,::10,1]))
+    plt.plot(time[k,::10], np.rad2deg(mrp_BN[k,::10,2]))
 plt.xlabel("$t$ $[sec]$", size=27)
 plt.ylabel("$\sigma_{B/N}$", size=27)
 # plt.legend(prop={'size':22})
@@ -379,9 +379,9 @@ plt.close()
 plt.figure()
 plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(time[k,:], np.rad2deg(w_BN[k,:,0]))
-    plt.plot(time[k,:], np.rad2deg(w_BN[k,:,1]))
-    plt.plot(time[k,:], np.rad2deg(w_BN[k,:,2]))
+    plt.plot(time[k,::10], np.rad2deg(w_BN[k,::10,0]))
+    plt.plot(time[k,::10], np.rad2deg(w_BN[k,::10,1]))
+    plt.plot(time[k,::10], np.rad2deg(w_BN[k,::10,2]))
 plt.axhline(np.rad2deg(w_max), label='$\omega_{max}$', color='k', linestyle='--')
 plt.axhline(-np.rad2deg(w_max), color='k', linestyle='--')
 plt.ylim([-np.rad2deg(w_max)*1.2, np.rad2deg(w_max)*1.2])
@@ -405,7 +405,7 @@ ax.add_patch(patch2)
 ax.add_patch(patch1_ext)
 # plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(right_as[k]*180/np.pi, dec[k]*180/np.pi, '.',markersize=2)
+    plt.plot(right_as[k,::10]*180/np.pi, dec[k,::10]*180/np.pi, '.',markersize=2)
 # plt.plot([right_as[0]*180/np.pi], [dec[0]*180/np.pi], marker='x', markersize=10, color="r")
 plt.plot([right_as[0,-1]*180/np.pi], [dec[0,-1]*180/np.pi], marker='x', markersize=10, color="g",label='end')
 plt.xlim([-180, 180])
@@ -422,12 +422,13 @@ plt.close()
 plt.figure()
 plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(time[k,:], np.rad2deg(angle_1[k]))
+    plt.plot(time[k,::10], np.rad2deg(angle_1[k,::10]))
 plt.axhline(np.rad2deg(cone_angle_1), label='$\\theta_{min}$', linestyle='-.', color='k')
 plt.axhline(np.rad2deg(angle_thres_1), label='$\\theta_{0}$', linestyle='--', color='c')
 # ax_theta1.axhline(np.rad2deg(angle_thres_1_max), label='$\\theta_{thres_{max1}}}$', linestyle='--', color='m')
-plt.ylim([0,180])
-plt.legend(prop={'size':22})
+plt.ylim([0,90])
+plt.xlim([0,120])
+plt.legend(loc='upper left',prop={'size':22})
 plt.xlabel("$t$ $[sec]$", size=27)
 plt.ylabel("$\\theta_1$ $[^\circ/sec]$", size=27)
 plt.savefig('figures_montecarlo/theta1.pdf', bbox_inches='tight', dpi=300)
@@ -436,10 +437,10 @@ plt.close()
 plt.figure()
 plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(time[k,:], rw_us1[k] * 1000)
-    plt.plot(time[k,:], rw_us2[k] * 1000)
-    plt.plot(time[k,:], rw_us3[k] * 1000)
-    plt.plot(time[k,:], rw_us4[k] * 1000)
+    plt.plot(time[k,::10], rw_us1[k,::10] * 1000)
+    plt.plot(time[k,::10], rw_us2[k,::10] * 1000)
+    plt.plot(time[k,::10], rw_us3[k,::10] * 1000)
+    plt.plot(time[k,::10], rw_us4[k,::10] * 1000)
 plt.xlabel("$t$ $[sec]$", size=27)
 plt.ylabel("$u_{s}$ $[mN m]$", size=27)
 plt.ylim([-us_max*1000*1.1, us_max*1000 * 1.1])

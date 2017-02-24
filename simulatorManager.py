@@ -191,7 +191,7 @@ class simulatorManager:
             stateManager.saveState(i)
 
             self._dynObj.integrateState(t, self._dt)
-            print i
+            # print i
         # end for
 
         return

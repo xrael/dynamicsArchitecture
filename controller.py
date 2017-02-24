@@ -617,7 +617,7 @@ class reactionWheelSteeringLawController(controller):
     _us = None
     _usMax = 0.0
 
-    def __init__(self, estimator, rws, referenceComp, period_outer_loop, period_inner_loop, P_omega, K_integral, K1_sigma, K3_sigma, w_max):
+    def __init__(self, estimator, rws, referenceComp, period_outer_loop, period_inner_loop, P_omega, K_integral, K1_sigma, K3_sigma, w_max, w_dot_average_window):
         """
 
         :param estimator:
@@ -630,6 +630,7 @@ class reactionWheelSteeringLawController(controller):
         :param K1_sigma:
         :param K3_sigma:
         :param w_max:
+        :param w_dot_average_window: Number of samples to smooth the numerical derivative of w
         :return:
         """
         super(reactionWheelSteeringLawController, self).__init__(estimator, referenceComp, period_inner_loop)
@@ -654,6 +655,8 @@ class reactionWheelSteeringLawController(controller):
         self._w_BR_B_desired = np.zeros(3)
         self._w_BR_B_dot_desired = np.zeros(3)
         self._resetDerivative = True
+
+        self._w_BR_dot_acc = np.zeros((w_dot_average_window,3))
 
         self._z = np.zeros(3)
 
@@ -698,6 +701,12 @@ class reactionWheelSteeringLawController(controller):
             i +=1
 
         self._torqueMappingMatrix = self._Gs.T.dot(np.linalg.inv(self._Gs.dot(self._Gs.T)))
+
+        # self._w_BR_desired_1 = np.zeros(3)
+        # self._w_BR_desired_2 = np.zeros(3)
+        # self._w_BR_desired_3 = np.zeros(3)
+
+        self._w_BR_dot_acc = np.zeros(self._w_BR_dot_acc.shape)
 
         self._w_BR_B_desired = np.zeros(3)
         self._w_BR_B_dot_desired = np.zeros(3)
@@ -804,15 +813,27 @@ class reactionWheelSteeringLawController(controller):
 
         (f, offset) = self.computeFfunction()
 
+        # self._w_BR_desired_1 = self._w_BR_desired_2
+        # self._w_BR_desired_2 = np.copy(self._w_BR_B_desired)
         w_BR_B_desired_last = np.copy(self._w_BR_B_desired)
         self._w_BR_B_desired = -2*self._w_max/np.pi * np.arctan((self._K1_sigma * f + self._K3_sigma * f**3) * np.pi/(2*self._w_max)) + offset
 
-        # Compute the derivative numerically
+        #Compute the derivative numerically
         if self._resetDerivative:
-            self._w_BR_B_dot_desired = np.zeros(3)
+            w_BR_B_dot_desired = np.zeros(3)
             self._resetDerivative = False
         else:
-            self._w_BR_B_dot_desired = (self._w_BR_B_desired - w_BR_B_desired_last)/self._periodOuterLoop
+            w_BR_B_dot_desired = (self._w_BR_B_desired - w_BR_B_desired_last)/self._periodOuterLoop
+
+        acc_count = self._w_BR_dot_acc.shape[0]
+
+        self._w_BR_dot_acc = np.roll(self._w_BR_dot_acc,-1,axis=0)
+        self._w_BR_dot_acc[acc_count-1] = w_BR_B_dot_desired
+
+        self._w_BR_B_dot_desired = np.average(self._w_BR_dot_acc,axis=0)
+
+        # self._w_BR_B_dot_desired = np.zeros(3)
+        # self._w_BR_B_dot_desired = w_BR_B_dot_desired
 
         self._controlForceManager.setStates('w_BR_B_desired', self._w_BR_B_desired)
         self._controlForceManager.setStates('w_BR_B_dot_desired', self._w_BR_B_dot_desired)
@@ -839,7 +860,7 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
     _exclusionConstraints = None
     _inclusionConstraints = None
 
-    def __init__(self, estimator, rws, referenceComp, period_outer_loop, period_inner_loop, P_omega, K_integral, K1_sigma, K3_sigma, w_max):
+    def __init__(self, estimator, rws, referenceComp, period_outer_loop, period_inner_loop, P_omega, K_integral, K1_sigma, K3_sigma, w_max, w_dot_average_window):
         """
 
         :param estimator:
@@ -852,9 +873,10 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
         :param K1_sigma:
         :param K3_sigma:
         :param w_max:
+        :param w_dot_average_window:
         :return:
         """
-        super(constrainedSteeringLawController, self).__init__(estimator, rws, referenceComp, period_outer_loop, period_inner_loop, P_omega, K_integral, K1_sigma, K3_sigma, w_max)
+        super(constrainedSteeringLawController, self).__init__(estimator, rws, referenceComp, period_outer_loop, period_inner_loop, P_omega, K_integral, K1_sigma, K3_sigma, w_max, w_dot_average_window)
 
         self._exclusionConstraints = list()
         self._inclusionConstraints = list()
@@ -869,7 +891,17 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
         return
 
 
-    def addExclusionConstraint(self, x_N, y_B, angle, name, angle_thres_min, angle_thres_max):
+    def addExclusionConstraint(self, x_N, y_B, angle, name, angle_thres_min=-1, angle_thres_max=-1):
+        """
+
+        :param x_N:
+        :param y_B:
+        :param angle:
+        :param name:
+        :param angle_thres_min:
+        :param angle_thres_max:
+        :return:
+        """
         cons = constraint(x_N, y_B, angle, name, angle_thres_min, angle_thres_max)
         self._exclusionConstraints.append(cons)
         self._controlForceManager.registerState(cons.getName() + '_y_N', 3)
@@ -983,7 +1015,8 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
 
         # Saddle point avoidance
         if np.linalg.norm(v_vec) < 0.01 and sigma_BR_2 > 0.1**2:
-            v_vec = 0.05*np.array([sigma_BR_est[2], 0, -sigma_BR_est[0]])
+            v_vec = 0.01*np.array([sigma_BR_est[2], 0, -sigma_BR_est[0]])
+            # self._resetDerivative = True
 
         v2 = np.inner(v_vec, v_vec)
         if  v2 > 0.001:
@@ -991,6 +1024,7 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
             offset = -np.outer(v_vec, u_vec).dot(w_RN_B_est)/v2
         else:
             offset = np.array([0,0,0])
+            # self._resetDerivative = True
 
 
 
@@ -1013,7 +1047,7 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
 
         #Vect = -Vect # There's a (-) sign in the steering law
 
-        print v_vec
+        # print v_vec
 
 
         # det_Q = np.linalg.det(Q)
@@ -1028,7 +1062,7 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
 
         self._controlForceManager.setStates('Vect', v_vec)
         self._controlForceManager.setStates('Uvect', u_vec)
-        self._controlForceManager.setStates('offset_norm', np.linalg.norm(offset)/np.linalg.norm(w_RN_B_est))
+        # self._controlForceManager.setStates('offset_norm', np.linalg.norm(offset)/np.linalg.norm(w_RN_B_est))
 
         #print 'offset', offset
 
