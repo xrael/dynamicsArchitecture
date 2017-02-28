@@ -1004,7 +1004,7 @@ class constrainedSteeringLawController(reactionWheelSteeringLawController):
                 v_vec += 1.0/nmbr_constr * sigma_BR_est
                 u_vec += np.array([0,0,0])
 
-            if c >= 0:
+            if c <= 0:
                 print constr.getName() + ': ' + str(c)
 
             V_lyapunov += -2.0/nmbr_constr * np.log(1 + sigma_BR_2) * np.log(c/alpha)
