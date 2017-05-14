@@ -131,7 +131,7 @@ angle_thres_2_max = angle_thres_2# + np.deg2rad(10)
 ######## Simulation parameters
 t0 = 0.0
 tf = 200.0
-dt = 0.1
+dt = 0.05
 
 
 ######## Control
@@ -143,8 +143,8 @@ K3_sigma = 0.1 #0.2
 K_i = 0.01 * np.eye(3)
 
 # Control loop steps
-outer_loop_step = 0.1        # 10 Hz
-innerLoop_step = 0.1        # 100 Hz
+outer_loop_step = dt #0.05        # 10 Hz
+innerLoop_step = dt #0.05        # 100 Hz
 
 ##### Reference computer
 reference_computer_step = dt
@@ -364,14 +364,21 @@ for i in range(0, l-1):
     verts_2.append((np.rad2deg(cone_2_right_as[i]), np.rad2deg(cone_2_dec[i])))
     verts_1_ext.append((np.rad2deg(cone_1_right_as_ext[i]), np.rad2deg(cone_1_dec_ext[i])))
 
+
+######## Plots
+plt.rc('text', usetex=True)
+plt.rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+plt.rc('xtick', labelsize=20)
+plt.rc('ytick', labelsize=20)
+
 plt.figure()
 plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(time[k,::10], np.rad2deg(mrp_BN[k,::10,0]))
-    plt.plot(time[k,::10], np.rad2deg(mrp_BN[k,::10,1]))
-    plt.plot(time[k,::10], np.rad2deg(mrp_BN[k,::10,2]))
-plt.xlabel("$t$ $[sec]$", size=27)
-plt.ylabel("$\sigma_{B/N}$", size=27)
+    plt.plot(time[k,::20], np.rad2deg(mrp_BN[k,::20,0]))
+    plt.plot(time[k,::20], np.rad2deg(mrp_BN[k,::20,1]))
+    plt.plot(time[k,::20], np.rad2deg(mrp_BN[k,::20,2]))
+plt.xlabel(r'$t$ [sec]', size=27)
+plt.ylabel(r'$\sigma_{B/N}$', size=27)
 # plt.legend(prop={'size':22})
 plt.savefig('figures_montecarlo/sigma_BN.pdf', bbox_inches='tight', dpi=300)
 plt.close()
@@ -379,14 +386,14 @@ plt.close()
 plt.figure()
 plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(time[k,::10], np.rad2deg(w_BN[k,::10,0]))
-    plt.plot(time[k,::10], np.rad2deg(w_BN[k,::10,1]))
-    plt.plot(time[k,::10], np.rad2deg(w_BN[k,::10,2]))
-plt.axhline(np.rad2deg(w_max), label='$\omega_{max}$', color='k', linestyle='--')
+    plt.plot(time[k,::20], np.rad2deg(w_BN[k,::20,0]))
+    plt.plot(time[k,::20], np.rad2deg(w_BN[k,::20,1]))
+    plt.plot(time[k,::20], np.rad2deg(w_BN[k,::20,2]))
+plt.axhline(np.rad2deg(w_max), label=r'$\omega_{max}$', color='k', linestyle='--')
 plt.axhline(-np.rad2deg(w_max), color='k', linestyle='--')
 plt.ylim([-np.rad2deg(w_max)*1.2, np.rad2deg(w_max)*1.2])
-plt.xlabel("$t$ $[sec]$", size=27)
-plt.ylabel("$\omega_{B/N}$ $[^\circ/sec]$", size=27)
+plt.xlabel(r'$t$ [sec]', size=27)
+plt.ylabel(r'$\omega_{B/N}$ [$^\circ$/sec]', size=27)
 plt.legend(prop={'size':22})
 plt.savefig('figures_montecarlo/w_BN.pdf', bbox_inches='tight', dpi=300)
 plt.close()
@@ -399,20 +406,22 @@ fig = plt.figure()
 ax = fig.add_subplot(111)
 patch1 = patches.PathPatch(path1, facecolor='#CD4141', lw=2, edgecolor="none")
 patch2 = patches.PathPatch(path2, facecolor='#CD4141', lw=2, edgecolor="none")
-patch1_ext = patches.PathPatch(path1_ext, facecolor='None', lw=2, edgecolor="black",label='$\\theta_0$')
+patch1_ext = patches.PathPatch(path1_ext, facecolor='#F69A56', lw=2, edgecolor="none",label='$\\theta_0$')
+ax.add_patch(patch1_ext)
 ax.add_patch(patch1)
 ax.add_patch(patch2)
-ax.add_patch(patch1_ext)
 # plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(right_as[k,::10]*180/np.pi, dec[k,::10]*180/np.pi, '.',markersize=2)
+    plt.plot(right_as[k,::20]*180/np.pi, dec[k,::20]*180/np.pi, '.',markersize=2)
 # plt.plot([right_as[0]*180/np.pi], [dec[0]*180/np.pi], marker='x', markersize=10, color="r")
 plt.plot([right_as[0,-1]*180/np.pi], [dec[0,-1]*180/np.pi], marker='x', markersize=10, color="g",label='end')
+ax.text(-97, -76, r'$1$',size=35)
+ax.text(-97, -5, r'$2$',size=35)
 plt.xlim([-180, 180])
 plt.ylim([-90, 90])
-plt.xlabel("Right ascension [$^\circ$]",size=22)
-plt.ylabel("Declination [$^\circ$]",size=22)
-plt.legend(loc='upper right',prop={'size':16})
+plt.xlabel(r'Right ascension [$^\circ$]',size=27)
+plt.ylabel(r'Declination [$^\circ$]',size=27)
+plt.legend(loc='upper right',prop={'size':19})
 plt.savefig('figures_montecarlo/map.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
@@ -422,30 +431,30 @@ plt.close()
 plt.figure()
 plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(time[k,::10], np.rad2deg(angle_1[k,::10]))
-plt.axhline(np.rad2deg(cone_angle_1), label='$\\theta_{min}$', linestyle='-.', color='k')
-plt.axhline(np.rad2deg(angle_thres_1), label='$\\theta_{0}$', linestyle='--', color='c')
+    plt.plot(time[k,::20], np.rad2deg(angle_1[k,::20]))
+plt.axhline(np.rad2deg(cone_angle_1), label=r'$\theta_{min}$', linestyle='-.', color='k')
+plt.axhline(np.rad2deg(angle_thres_1), label=r'$\theta_{0}$', linestyle='--', color='c')
 # ax_theta1.axhline(np.rad2deg(angle_thres_1_max), label='$\\theta_{thres_{max1}}}$', linestyle='--', color='m')
 plt.ylim([0,90])
 plt.xlim([0,120])
 plt.legend(loc='upper left',prop={'size':22})
-plt.xlabel("$t$ $[sec]$", size=27)
-plt.ylabel("$\\theta_1$ $[^\circ/sec]$", size=27)
+plt.xlabel(r'$t$ [sec]', size=27)
+plt.ylabel(r'$\theta_1$ [$^\circ$]', size=27)
 plt.savefig('figures_montecarlo/theta1.pdf', bbox_inches='tight', dpi=300)
 plt.close()
 
 plt.figure()
 plt.hold(True)
 for k in range(0, N_sim):
-    plt.plot(time[k,::10], rw_us1[k,::10] * 1000)
-    plt.plot(time[k,::10], rw_us2[k,::10] * 1000)
-    plt.plot(time[k,::10], rw_us3[k,::10] * 1000)
-    plt.plot(time[k,::10], rw_us4[k,::10] * 1000)
-plt.xlabel("$t$ $[sec]$", size=27)
-plt.ylabel("$u_{s}$ $[mN m]$", size=27)
+    plt.plot(time[k,::20], rw_us1[k,::20] * 1000)
+    plt.plot(time[k,::20], rw_us2[k,::20] * 1000)
+    plt.plot(time[k,::20], rw_us3[k,::20] * 1000)
+    plt.plot(time[k,::20], rw_us4[k,::20] * 1000)
+plt.xlabel(r'$t$ [sec]', size=27)
+plt.ylabel(r'$u_{s}$ [mN m]', size=27)
 plt.ylim([-us_max*1000*1.1, us_max*1000 * 1.1])
 plt.axhline(-us_max*1000, linestyle='-.', color='k')
-plt.axhline(us_max*1000, label='$u_{s-max}$', linestyle='-.', color='k')
+plt.axhline(us_max*1000, label=r'$u_{s-max}$', linestyle='-.', color='k')
 plt.legend(prop={'size':22})
 plt.savefig('figures_montecarlo/rw_us.pdf', bbox_inches='tight', dpi=300)
 plt.close()
@@ -458,7 +467,7 @@ plt.close()
 # plt.axhline(np.rad2deg(angle_thres_2_max), label='$\\theta_{thres_{max2}}}$', linestyle='--', color='m')
 # plt.ylim([0,180])
 # plt.legend(prop={'size':22})
-# plt.xlabel("$t$ $[sec]$", size=27)
+# plt.xlabel("$t$ [sec]", size=27)
 # plt.ylabel("$\\theta_2$ $[^\circ]$", size=27)
 # plt.savefig('figures_montecarlo/theta2.pdf', bbox_inches='tight', dpi=300)
 # plt.close()
